@@ -1,0 +1,3259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zichru — Talmud Mastery</title>
+<meta name="description" content="Zichru — memorize and review the daf with simanim, spaced repetition and progress tracking.">
+<meta name="theme-color" content="#1B2A4A">
+<meta property="og:title" content="Zichru — Talmud Mastery">
+<meta property="og:description" content="Memorize and review the daf with simanim, spaced repetition and progress tracking.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%231B2A4A'/%3E%3Ctext x='32' y='45' font-family='Georgia,serif' font-size='38' font-weight='bold' text-anchor='middle' fill='%23C5972A'%3E%D7%96%3C/text%3E%3C/svg%3E">
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@400;500;600;700&family=Frank+Ruhl+Libre:wght@400;700&display=swap');
+:root{
+  --navy:#1B2A4A;--navy2:#253762;--gold:#C5972A;--gold-lt:#E8C96A;
+  --cream:#F7F4EE;--parchment:#EDE7D9;--ink:#2C2C2C;--muted:#7A7465;
+  --border:#D9D0BE;--card:#FFFFFF;
+  --c1:#00BFFF;--c2:#FFD700;--c3:#A0A0A0;--c4:#CD7F32;--c5:#E05050;
+  --green:#2D6A4F;--red:#8B2020;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);min-height:100vh;}
+
+/* HEADER */
+header{background:var(--navy);height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 1.2rem;position:sticky;top:0;z-index:200;box-shadow:0 2px 10px rgba(0,0,0,.3);}
+.logo{font-family:'Frank Ruhl Libre',serif;color:var(--gold);font-size:1.3rem;letter-spacing:.03em;}
+.logo small{color:rgba(255,255,255,.4);font-size:.65rem;font-family:'DM Sans',sans-serif;letter-spacing:.1em;margin-left:.4rem;}
+nav{display:flex;gap:.25rem;}
+nav button{background:none;border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);padding:.3rem .75rem;border-radius:6px;cursor:pointer;font-size:.78rem;font-family:'DM Sans',sans-serif;transition:all .15s;}
+nav button:hover,nav button.active{background:var(--gold);border-color:var(--gold);color:var(--navy);font-weight:700;}
+.api-dot{width:7px;height:7px;border-radius:50%;background:var(--c5);cursor:pointer;margin-left:.5rem;}
+.api-dot.set{background:#2D7A50;}
+
+/* SCREENS */
+.screen{display:none;max-width:860px;margin:0 auto;padding:1.2rem 1rem 5rem;}
+.screen.active{display:block;}
+
+/* SECTION HEAD */
+.sh{font-family:'Crimson Pro',serif;font-size:1.2rem;color:var(--navy);padding-bottom:.4rem;border-bottom:2px solid var(--border);margin:1.2rem 0 .8rem;}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:.35rem;border:none;padding:.55rem 1.2rem;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .15s;}
+.btn-navy{background:var(--navy);color:#fff;}.btn-navy:hover{background:var(--navy2);}
+.btn-gold{background:var(--gold);color:var(--navy);}.btn-gold:hover{background:#b5881f;}
+.btn-ghost{background:none;border:1.5px solid var(--border);color:var(--navy);}.btn-ghost:hover{background:var(--parchment);}
+.btn-sm{padding:.3rem .7rem;font-size:.76rem;}
+.btn-red{background:rgba(139,32,32,.1);border:1.5px solid rgba(139,32,32,.3);color:var(--red);}
+
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:1.1rem;}
+
+/* HOME */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:1rem;}
+@media(max-width:600px){.stat-grid{grid-template-columns:repeat(2,1fr);}}
+.stat-box{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:.9rem;text-align:center;}
+.stat-box .n{font-family:'Frank Ruhl Libre',serif;font-size:1.9rem;color:var(--navy);display:block;}
+.stat-box .l{font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);}
+.action-row{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-bottom:1rem;}
+@media(max-width:500px){.action-row{grid-template-columns:1fr;}}
+.action-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem;cursor:pointer;display:flex;gap:.8rem;align-items:flex-start;transition:all .15s;}
+.action-card:hover{border-color:var(--gold);transform:translateY(-1px);box-shadow:0 4px 14px rgba(197,151,42,.15);}
+.action-card .ic{font-size:1.5rem;flex-shrink:0;}
+.action-card h3{font-size:.88rem;font-weight:700;color:var(--navy);margin-bottom:.2rem;}
+.action-card p{font-size:.76rem;color:var(--muted);line-height:1.45;}
+.recent-pills{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.3rem;}
+.rpill{background:var(--parchment);border:1px solid var(--border);border-radius:7px;padding:.3rem .65rem;font-size:.78rem;cursor:pointer;display:flex;align-items:center;gap:.35rem;transition:all .15s;}
+.rpill:hover{border-color:var(--navy);}
+.m-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+
+/* MASTERY COLORS */
+.mc1{color:#0088AA;background:rgba(0,191,255,.12);border-color:rgba(0,191,255,.35);}
+.mc2{color:#887000;background:rgba(255,215,0,.12);border-color:rgba(255,215,0,.35);}
+.mc3{color:#555;background:rgba(160,160,160,.15);border-color:rgba(160,160,160,.4);}
+.mc4{color:#7A4510;background:rgba(205,127,50,.12);border-color:rgba(205,127,50,.35);}
+.mc5{color:var(--red);background:rgba(224,80,80,.1);border-color:rgba(224,80,80,.3);}
+.mbadge{display:inline-flex;align-items:center;gap:.25rem;font-size:.7rem;font-weight:700;padding:.15rem .5rem;border-radius:100px;border:1px solid;}
+
+/* BROWSE */
+.browse-bar{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.9rem;}
+.browse-bar input{flex:1;min-width:150px;border:1.5px solid var(--border);border-radius:8px;padding:.45rem .8rem;font-size:.85rem;background:var(--cream);font-family:'DM Sans',sans-serif;}
+.browse-bar input:focus{outline:none;border-color:var(--navy);}
+.browse-bar select{border:1.5px solid var(--border);border-radius:8px;padding:.45rem .65rem;font-size:.82rem;background:var(--cream);font-family:'DM Sans',sans-serif;}
+.ch-bar{background:var(--navy);color:#fff;border-radius:8px;padding:.5rem .9rem;font-family:'Frank Ruhl Libre',serif;font-size:.95rem;margin:1rem 0 .5rem;display:flex;justify-content:space-between;}
+.ch-bar span{font-size:.7rem;opacity:.55;font-family:'DM Sans',sans-serif;align-self:center;}
+.drow{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:.5rem;overflow:hidden;}
+.drow:hover{border-color:rgba(197,151,42,.4);}
+.drow-hdr{display:flex;align-items:center;gap:.7rem;padding:.7rem .9rem;cursor:pointer;}
+.dnb{background:var(--navy);color:var(--gold);font-family:'Frank Ruhl Libre',serif;font-size:1rem;min-width:38px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.drow-info{flex:1;}
+.drow-title{font-weight:600;font-size:.87rem;color:var(--navy);}
+.drow-meta{font-size:.72rem;color:var(--muted);margin-top:.1rem;display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;}
+.spill{background:rgba(197,151,42,.1);border:1px solid rgba(197,151,42,.3);color:var(--gold);border-radius:100px;padding:.1rem .45rem;font-size:.68rem;}
+.drow-acts{display:flex;gap:.25rem;flex-shrink:0;}
+.ibtn{background:none;border:none;font-size:1rem;cursor:pointer;opacity:.45;transition:opacity .15s;padding:.15rem;}
+.ibtn:hover,.ibtn.on{opacity:1;}
+.ibtn.gold-on{color:#FFD700;opacity:1;}
+.ibtn.silver-on{color:#999;opacity:1;}
+.drow-detail{display:none;border-top:1px solid var(--border);padding:.9rem;}
+.drow.open .drow-detail{display:block;}
+.pt-wrap{margin-bottom:.65rem;}
+.pt-hdr{display:flex;align-items:center;gap:.5rem;cursor:pointer;padding:.3rem .4rem;border-radius:7px;}
+.pt-hdr:hover{background:var(--parchment);}
+.ptn{background:var(--navy);color:var(--gold);font-size:.68rem;font-weight:700;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.pt-title{font-weight:600;font-size:.85rem;color:var(--navy);flex:1;}
+.pt-arr{color:var(--muted);font-size:.7rem;transition:transform .15s;}
+.pt-wrap.open .pt-arr{transform:rotate(90deg);}
+.pt-body{display:none;padding:.4rem .4rem .2rem 1.9rem;font-size:.82rem;line-height:1.6;color:var(--ink);}
+.pt-wrap.open .pt-body{display:block;}
+.story-box{background:var(--parchment);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;padding:.7rem .9rem;margin:.7rem 0;font-family:'Crimson Pro',serif;font-size:.92rem;font-style:italic;color:var(--navy);}
+.story-box strong{font-style:normal;font-family:'DM Sans',sans-serif;font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;color:var(--gold);display:block;margin-bottom:.25rem;}
+.note-box{background:rgba(197,151,42,.07);border-left:3px solid var(--gold);border-radius:0 7px 7px 0;padding:.4rem .6rem;margin:.3rem 0;font-size:.8rem;color:var(--navy);}
+.note-box .del-note{float:right;background:none;border:none;color:var(--red);cursor:pointer;font-size:.8rem;}
+.add-note-area{margin-top:.7rem;}
+.add-note-area textarea{width:100%;border:1.5px solid var(--border);border-radius:7px;padding:.5rem .7rem;font-size:.82rem;font-family:'DM Sans',sans-serif;background:var(--cream);resize:vertical;min-height:52px;}
+.img-slot{border:2px dashed var(--border);border-radius:8px;padding:.8rem;text-align:center;color:var(--muted);font-size:.76rem;margin:.5rem 0;}
+.img-slot img{max-width:100%;border-radius:6px;}
+.sefaria-link{font-size:.75rem;color:var(--navy);text-decoration:none;opacity:.65;display:inline-flex;align-items:center;gap:.25rem;}
+.sefaria-link:hover{opacity:1;text-decoration:underline;}
+
+/* ════════════════════════════════
+   QUIZ — core UI
+   ════════════════════════════════ */
+.quiz-wrap{max-width:640px;margin:0 auto;}
+
+/* Setup */
+.qsetup .setup-grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-bottom:.8rem;}
+@media(max-width:480px){.qsetup .setup-grid{grid-template-columns:1fr;}}
+.setup-field label{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);display:block;margin-bottom:.25rem;}
+.setup-field select,.setup-field input{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:.42rem .65rem;font-size:.85rem;font-family:'DM Sans',sans-serif;background:var(--cream);}
+.mode-pills{display:flex;gap:.4rem;flex-wrap:wrap;margin:.5rem 0;}
+.mpill{border:1.5px solid var(--border);border-radius:100px;padding:.3rem .8rem;font-size:.78rem;cursor:pointer;background:var(--cream);transition:all .15s;}
+.mpill.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+
+/* Active quiz card */
+.qcard{background:var(--card);border:1px solid var(--border);border-radius:15px;overflow:hidden;position:relative;}
+.qcard-bar{height:4px;background:linear-gradient(90deg,var(--navy),var(--gold));}
+.qcard-body{padding:1.3rem 1.4rem;}
+
+/* Progress + nav */
+.qnav{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;}
+.qnav-btn{background:none;border:1.5px solid var(--border);border-radius:7px;width:32px;height:32px;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;}
+.qnav-btn:hover:not(:disabled){border-color:var(--navy);}
+.qnav-btn:disabled{opacity:.3;cursor:default;}
+.qpbar{flex:1;height:5px;background:var(--border);border-radius:100px;overflow:hidden;}
+.qpfill{height:100%;background:linear-gradient(90deg,var(--navy),var(--gold));border-radius:100px;transition:width .35s;}
+.qptext{font-size:.78rem;color:var(--muted);white-space:nowrap;}
+
+/* Difficulty chip */
+.diff-chip{display:inline-flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:.15rem .55rem;border-radius:100px;margin-bottom:.8rem;}
+.diff1{background:rgba(224,80,80,.1);color:var(--red);border:1px solid rgba(224,80,80,.25);}
+.diff2{background:rgba(205,127,50,.1);color:#7A4510;border:1px solid rgba(205,127,50,.25);}
+.diff3{background:rgba(160,160,160,.15);color:#555;border:1px solid rgba(160,160,160,.3);}
+.diff4{background:rgba(255,215,0,.12);color:#887000;border:1px solid rgba(255,215,0,.3);}
+.diff5{background:rgba(0,191,255,.1);color:#0088AA;border:1px solid rgba(0,191,255,.25);}
+
+/* Timer bar (hidden, just a visual cue) */
+.timer-bar-wrap{height:2px;background:var(--border);border-radius:100px;margin-bottom:1rem;overflow:hidden;}
+.timer-bar{height:100%;background:var(--green);border-radius:100px;transition:width .1s linear;}
+
+/* Question text */
+.qtext{font-family:'Crimson Pro',serif;font-size:1.4rem;color:var(--navy);line-height:1.3;margin-bottom:.8rem;}
+.qtopic{background:var(--parchment);border:1px solid var(--border);border-radius:9px;padding:.8rem 1rem;margin-bottom:1rem;}
+.qtopic .ql{font-size:.67rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:.3rem;}
+.qtopic .qt{font-size:.95rem;color:var(--navy);font-weight:500;line-height:1.4;}
+
+/* MC options */
+.mc-wrap{display:grid;grid-template-columns:1fr 1fr;gap:.55rem;margin-bottom:1rem;}
+@media(max-width:440px){.mc-wrap{grid-template-columns:1fr;}}
+.mc-opt{border:2px solid var(--border);border-radius:10px;padding:.65rem .9rem;cursor:pointer;transition:all .15s;background:var(--cream);text-align:center;}
+.mc-opt:hover:not(.locked){border-color:var(--navy);background:var(--parchment);}
+.mc-opt .mc-heb{font-family:'Frank Ruhl Libre',serif;font-size:1.2rem;color:var(--navy);display:block;}
+.mc-opt .mc-sub{font-size:.68rem;color:var(--muted);margin-top:.1rem;display:block;}
+.mc-opt.correct{border-color:var(--green)!important;background:#e8f5ee!important;color:var(--green);}
+.mc-opt.wrong{border-color:var(--red)!important;background:#fde8e8!important;color:var(--red);}
+.mc-opt.show-correct{border-color:var(--green)!important;background:#e8f5ee!important;}
+.mc-opt.locked{cursor:default;}
+
+/* Text input */
+.tinput-wrap{margin-bottom:1rem;}
+.tinput-wrap label{font-size:.76rem;color:var(--muted);display:block;margin-bottom:.35rem;}
+.daf-inp{width:100%;border:2px solid var(--border);border-radius:10px;padding:.7rem 1rem;font-size:1.3rem;font-family:'Frank Ruhl Libre',serif;text-align:center;background:var(--cream);transition:border-color .15s;}
+.daf-inp:focus{outline:none;border-color:var(--navy);}
+.daf-inp.correct{border-color:var(--green);background:#e8f5ee;}
+.daf-inp.wrong{border-color:var(--red);background:#fde8e8;}
+.recall-inp{font-size:.9rem;font-family:'DM Sans',sans-serif;text-align:left;min-height:75px;resize:vertical;border-radius:9px;}
+
+/* Hint strip */
+.hint-strip{background:rgba(197,151,42,.08);border:1px solid rgba(197,151,42,.25);border-radius:8px;padding:.55rem .8rem;font-size:.82rem;color:var(--navy);margin-top:.65rem;display:none;}
+.hint-strip.show{display:block;}
+.hint-strip strong{color:var(--gold);}
+
+/* Action row */
+.qact{display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.8rem;align-items:center;}
+.qact-right{margin-left:auto;display:flex;gap:.4rem;}
+
+/* Answer reveal */
+.ans-panel{border-top:1px solid var(--border);margin-top:1rem;padding-top:1rem;display:none;}
+.ans-panel.show{display:block;}
+.ans-panel .apl{font-size:.67rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:.55rem;}
+.arow{display:flex;gap:.6rem;margin-bottom:.5rem;align-items:flex-start;}
+.anum{background:var(--navy);color:var(--gold);width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;flex-shrink:0;margin-top:.1rem;}
+.atext{font-size:.85rem;line-height:1.5;}
+.atext strong{color:var(--navy);}
+.expand-btn{font-size:.73rem;color:var(--muted);background:none;border:1px solid var(--border);border-radius:5px;padding:.15rem .5rem;cursor:pointer;margin-top:.3rem;}
+.expand-btn:hover{background:var(--parchment);}
+.adetail{display:none;font-size:.81rem;color:var(--muted);line-height:1.6;margin-top:.35rem;padding:.4rem .5rem;border-left:2px solid var(--border);}
+.adetail.show{display:block;}
+
+/* AI response */
+.ai-box{background:var(--parchment);border:1px solid var(--border);border-radius:9px;padding:.8rem .9rem;margin-top:.7rem;display:none;}
+.ai-box.show{display:block;}
+.ai-box .ail{font-size:.67rem;text-transform:uppercase;letter-spacing:.08em;color:var(--gold);font-weight:700;margin-bottom:.35rem;}
+.dots span{animation:db 1.2s infinite;display:inline-block;}
+.dots span:nth-child(2){animation-delay:.2s;}
+.dots span:nth-child(3){animation-delay:.4s;}
+@keyframes db{0%,80%,100%{opacity:0;}40%{opacity:1;}}
+
+/* Wrong flash */
+@keyframes wrongShake{0%,100%{transform:translateX(0);}20%,60%{transform:translateX(-5px);}40%,80%{transform:translateX(5px);}}
+.shake{animation:wrongShake .35s ease;}
+
+/* Auto-advance overlay */
+.auto-next{position:absolute;bottom:1rem;right:1.4rem;font-size:.75rem;color:var(--muted);display:flex;align-items:center;gap:.4rem;}
+.auto-ring{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--green);animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* Results */
+.res-wrap{text-align:center;padding:1.5rem 1rem;}
+.res-score{font-family:'Frank Ruhl Libre',serif;font-size:3.5rem;color:var(--navy);margin:.5rem 0 .2rem;}
+.res-breakdown{display:flex;justify-content:center;gap:1rem;font-size:.83rem;margin:1rem 0 1.5rem;}
+.missed-list{text-align:left;margin-top:1.2rem;}
+.mrow{display:flex;gap:.6rem;padding:.5rem 0;border-bottom:1px solid var(--border);align-items:center;font-size:.82rem;}
+.mdnb{background:var(--navy);color:var(--gold);font-family:'Frank Ruhl Libre',serif;font-size:.85rem;min-width:34px;height:34px;border-radius:7px;display:flex;align-items:center;justify-content:center;}
+
+/* PROGRESS */
+.tp-card{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:1rem;margin-bottom:.8rem;}
+.tp-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;}
+.tp-name{font-weight:700;color:var(--navy);font-size:.9rem;}
+.mdist{display:flex;gap:2px;height:7px;border-radius:100px;overflow:hidden;margin:.3rem 0;}
+.mseg{height:100%;}
+.dmini-grid{display:flex;flex-wrap:wrap;gap:3px;margin-top:.55rem;}
+.dmini{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Frank Ruhl Libre',serif;font-size:.7rem;cursor:pointer;border:1.5px solid transparent;transition:all .12s;position:relative;}
+.dmini:hover{transform:scale(1.12);}
+.dmini.m1{background:rgba(0,191,255,.18);color:#0088AA;border-color:rgba(0,191,255,.4);}
+.dmini.m2{background:rgba(255,215,0,.18);color:#887000;border-color:rgba(255,215,0,.4);}
+.dmini.m3{background:rgba(160,160,160,.2);color:#555;border-color:rgba(160,160,160,.45);}
+.dmini.m4{background:rgba(205,127,50,.18);color:#7A4510;border-color:rgba(205,127,50,.4);}
+.dmini.m5{background:rgba(224,80,80,.13);color:var(--red);border-color:rgba(224,80,80,.3);}
+.dmini.un{background:var(--parchment);color:var(--border);border-color:var(--border);}
+.bkdot{position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;}
+
+/* SETTINGS */
+.ss{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:1rem;margin-bottom:.8rem;}
+.ss h3{font-size:.87rem;font-weight:700;color:var(--navy);margin-bottom:.7rem;}
+.srow{display:flex;align-items:center;justify-content:space-between;padding:.45rem 0;border-bottom:1px solid var(--border);gap:.8rem;}
+.srow:last-child{border-bottom:none;}
+.srow label{font-size:.82rem;flex:1;}
+.srow small{font-size:.72rem;color:var(--muted);display:block;}
+.srow input[type=text],.srow input[type=password]{border:1.5px solid var(--border);border-radius:7px;padding:.35rem .6rem;font-size:.83rem;font-family:'DM Sans',sans-serif;background:var(--cream);width:200px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(70px);background:var(--navy);color:#fff;padding:.6rem 1.3rem;border-radius:100px;font-size:.83rem;font-weight:500;transition:transform .25s;z-index:500;white-space:nowrap;pointer-events:none;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+/* WRONG PULSE on qcard */
+@keyframes wrongPulse{0%,100%{box-shadow:0 0 0 0 rgba(139,32,32,0);}50%{box-shadow:0 0 0 6px rgba(139,32,32,.4);}}
+.qcard.wrong-pulse{border-color:var(--red)!important;animation:wrongPulse .5s ease 2;}
+@keyframes correctFlash{0%{box-shadow:0 0 0 0 rgba(45,106,79,0);}50%{box-shadow:0 0 0 8px rgba(45,106,79,.35);}100%{box-shadow:0 0 0 0 rgba(45,106,79,0);}}
+.qcard.correct-flash{border-color:var(--green)!important;animation:correctFlash .6s ease;}
+
+/* Try-again strip */
+.try-again-strip{background:rgba(139,32,32,.07);border:1.5px solid rgba(139,32,32,.3);border-radius:9px;padding:.6rem .9rem;display:none;margin-top:.6rem;align-items:center;gap:.6rem;flex-wrap:wrap;}
+.try-again-strip.show{display:flex;}
+.try-again-strip span{font-size:.82rem;color:var(--red);flex:1;}
+.ta-count{font-size:.72rem;color:var(--muted);background:rgba(139,32,32,.08);border-radius:100px;padding:.1rem .5rem;}
+
+/* TRACKER */
+.tracker-card{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:1rem;}
+.trow{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:.5rem;}
+.trow label{font-size:.78rem;color:var(--muted);min-width:90px;}
+.trow select,.trow input{border:1.5px solid var(--border);border-radius:7px;padding:.35rem .55rem;font-size:.83rem;font-family:'DM Sans',sans-serif;background:var(--cream);}
+.pbar-wrap{background:var(--parchment);border-radius:100px;height:7px;margin:.5rem 0 .25rem;overflow:hidden;}
+.pbar-fill{height:100%;background:linear-gradient(90deg,var(--navy),var(--gold));border-radius:100px;}
+
+/* LIBRARY */
+.lib-tractate{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.1rem;margin-bottom:.9rem;}
+.lib-tract-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem;}
+.lib-tract-name{font-weight:700;color:var(--navy);font-size:.95rem;}
+.lib-tract-meta{font-size:.75rem;color:var(--muted);}
+.daf-toggle-grid{display:flex;flex-wrap:wrap;gap:4px;margin:.5rem 0;}
+.dtog{width:34px;height:34px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'Frank Ruhl Libre',serif;font-size:.75rem;cursor:pointer;border:2px solid var(--border);background:var(--parchment);color:var(--muted);transition:all .12s;user-select:none;}
+.dtog:hover{border-color:var(--navy);color:var(--navy);}
+.dtog.learned{background:var(--navy);border-color:var(--navy);color:var(--gold);}
+.dtog.learned.mastered{background:var(--c1);border-color:var(--c1);color:var(--navy);}
+.range-quick{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.5rem;}
+.upload-zone{border:2px dashed var(--border);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;transition:all .2s;margin:.7rem 0;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--navy);background:var(--parchment);}
+.upload-zone .uz-icon{font-size:2rem;margin-bottom:.4rem;}
+.upload-zone p{font-size:.82rem;color:var(--muted);}
+.upload-zone strong{color:var(--navy);font-size:.88rem;}
+.fmt-example{background:var(--parchment);border-radius:8px;padding:.7rem .9rem;font-size:.75rem;font-family:monospace;color:var(--ink);white-space:pre;overflow-x:auto;margin:.5rem 0;line-height:1.6;}
+.lib-tabs{display:flex;gap:.4rem;margin-bottom:1rem;}
+.lib-tab{border:1.5px solid var(--border);border-radius:8px;padding:.35rem .9rem;font-size:.8rem;cursor:pointer;background:var(--cream);transition:all .15s;}
+.lib-tab.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700;}
+.manual-add{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.1rem;}
+.manual-add h3{font-size:.88rem;font-weight:700;color:var(--navy);margin-bottom:.7rem;}
+.mfield{margin-bottom:.55rem;}
+.mfield label{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);display:block;margin-bottom:.2rem;}
+.mfield input,.mfield textarea,.mfield select{width:100%;border:1.5px solid var(--border);border-radius:7px;padding:.4rem .65rem;font-size:.83rem;font-family:'DM Sans',sans-serif;background:var(--cream);}
+.mfield textarea{min-height:55px;resize:vertical;}
+.pt-add-group{border:1px solid var(--border);border-radius:8px;padding:.6rem;margin-bottom:.4rem;background:var(--parchment);}
+.pt-add-group label{font-size:.7rem;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.3rem;display:block;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">זִכְרוּ <small>TALMUD MASTERY</small></div>
+  <nav id="topNav">
+    <button class="active" data-screen="home" onclick="goTo('home')">Home</button>
+    <button data-screen="browse" onclick="goTo('browse')">Browse</button>
+    <button data-screen="quiz" onclick="goTo('quiz')">Quiz</button>
+    <button data-screen="progress" onclick="goTo('progress')">Progress</button>
+    <button data-screen="settings" onclick="goTo('settings')">Settings</button>
+  </nav>
+  <div style="display:flex;align-items:center;gap:.5rem;">
+    <div id="userAvatar" style="display:none;width:28px;height:28px;border-radius:50%;background:var(--gold);color:var(--navy);font-size:.75rem;font-weight:700;display:none;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;" onclick="goTo('settings')" title="Account"></div>
+    <div class="api-dot" id="apiDot" title="API Key" onclick="goTo('settings')"></div>
+  </div>
+</header>
+
+<!-- HOME -->
+<div id="s-home" class="screen active">
+  <div style="padding:.6rem 0 .9rem;">
+    <div style="font-family:'Crimson Pro',serif;font-size:1.7rem;color:var(--navy);">Good to see you, <em style="color:var(--gold);font-style:normal;" id="greetName">Chavrusa</em></div>
+    <div style="font-size:.82rem;color:var(--muted);margin-top:.15rem;" id="statusLine">Loading…</div>
+  </div>
+  <div class="stat-grid" id="homeStats"></div>
+  <p class="sh">Study Now</p>
+  <div class="action-row">
+    <div class="action-card" onclick="launchSmartQuiz()"><div class="ic">🎯</div><div><h3>Daily Review</h3><p>Weighted by what you need most</p></div></div>
+    <div class="action-card" onclick="launchWeakQuiz()"><div class="ic">💪</div><div><h3>Weakest Dafim</h3><p>Focus on your lowest scores</p></div></div>
+    <div class="action-card" onclick="launchRandomQuiz()"><div class="ic">🎲</div><div><h3>Random Drill</h3><p>Any daf, keeps you on your toes</p></div></div>
+    <div class="action-card" onclick="goTo('browse')"><div class="ic">📖</div><div><h3>Browse</h3><p>Read and expand any daf</p></div></div>
+  </div>
+  <p class="sh">Recent</p>
+  <div class="recent-pills" id="recentPills"><span style="color:var(--muted);font-size:.82rem;">No recent activity yet.</span></div>
+  <p class="sh" style="margin-top:1.2rem;">Study Tracker</p>
+  <div class="tracker-card">
+    <div class="trow"><label>Tractate</label><select id="tkTractate"><option value="">Loading…</option></select></div>
+    <div class="trow"><label>Current daf</label><select id="tkDaf"></select><button class="btn btn-navy btn-sm" onclick="saveCurrent()">Set</button></div>
+    <div class="trow"><label>Rhythm</label>
+      <select id="tkRhythm"><option value="daily">1 daf/day</option><option value="twice">2×/week</option><option value="weekly">Weekly</option><option value="manual">Manual</option></select>
+    </div>
+    <div id="tkProgressWrap" style="display:none;">
+      <div class="pbar-wrap"><div class="pbar-fill" id="tkBar" style="width:0%"></div></div>
+      <div style="font-size:.75rem;color:var(--muted);" id="tkLabel"></div>
+    </div>
+  </div>
+</div>
+
+<!-- BROWSE -->
+<div id="s-browse" class="screen">
+  <p class="sh" id="browseHeader">Browse — All Tractates</p>
+  <div class="browse-bar">
+    <input type="text" id="bSearch" placeholder="Search topic, siman, daf…" oninput="renderBrowse()">
+    <select id="bSort" onchange="renderBrowse()">
+      <option value="order">Tractate order</option>
+      <option value="weakest">Weakest first</option>
+      <option value="strongest">Strongest first</option>
+      <option value="recent">Most recent</option>
+      <option value="bookmarked">Bookmarked only</option>
+    </select>
+  </div>
+  <div id="browseList"></div>
+</div>
+
+<!-- QUIZ -->
+<div id="s-quiz" class="screen">
+  <div class="quiz-wrap">
+    <!-- SETUP -->
+    <div id="qSetup" class="qsetup">
+      <p class="sh">Quiz</p>
+      <div class="card" style="margin-bottom:.8rem;">
+        <div class="setup-grid">
+          <div class="setup-field"><label>Tractates</label><select id="qTractates" multiple size="4" onchange="renderQuizSetup()"></select></div>
+          <div class="setup-field"><label>Pool</label>
+            <select id="qPoolMode"><option value="learned" selected>Learned only</option><option value="all">All pages</option></select>
+          </div>
+          <div class="setup-field"><label>From Daf</label><select id="qFrom"></select></div>
+          <div class="setup-field"><label>To Daf</label><select id="qTo"></select></div>
+          <div class="setup-field"><label>Questions</label>
+            <select id="qCount"><option value="5">5</option><option value="10" selected>10</option><option value="15">15</option><option value="20">20</option></select>
+          </div>
+          <div class="setup-field"><label>Focus</label>
+            <select id="qFocus"><option value="smart">Smart (weighted)</option><option value="weak">Weakest</option><option value="random">Random</option></select>
+          </div>
+        </div>
+        <div style="margin-top:.8rem;">
+          <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:.35rem;">Allow question types</div>
+          <div class="mode-pills">
+            <div class="mpill on" data-mode="locate-mc" onclick="toggleMpill(this)">📍 Find daf (choices)</div>
+            <div class="mpill on" data-mode="locate-type" onclick="toggleMpill(this)">✍️ Find daf (type)</div>
+            <div class="mpill on" data-mode="recall-mc" onclick="toggleMpill(this)">🔢 Points (choices)</div>
+            <div class="mpill on" data-mode="recall-type" onclick="toggleMpill(this)">💭 Points (type/AI)</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.9rem;">
+          <button class="btn btn-gold" onclick="beginQuiz()">▶ Start</button>
+          <button class="btn btn-ghost" onclick="launchSmartQuiz()">🎯 Smart Daily</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIVE -->
+    <div id="qActive" style="display:none;">
+      <div class="qcard" id="qCard">
+        <div class="qcard-bar"></div>
+        <div class="qcard-body">
+          <!-- Progress nav -->
+          <div class="qnav">
+            <button class="qnav-btn" id="qPrevBtn" onclick="navQ(-1)" title="Previous">‹</button>
+            <div class="qpbar"><div class="qpfill" id="qPFill" style="width:0%"></div></div>
+            <span class="qptext" id="qPText">1/10</span>
+            <button class="qnav-btn" id="qNextBtn" onclick="navQ(1)" title="Next">›</button>
+          </div>
+          <!-- timer bar -->
+          <div class="timer-bar-wrap"><div class="timer-bar" id="timerBar" style="width:100%"></div></div>
+          <!-- Diff chip -->
+          <span class="diff-chip" id="diffChip"></span>
+          <!-- Question -->
+          <div class="qtext" id="qText"></div>
+          <!-- Topic box (locate mode) -->
+          <div class="qtopic" id="qTopicBox" style="display:none;">
+            <div class="ql">Topic</div>
+            <div class="qt" id="qTopicText"></div>
+          </div>
+          <!-- MC options -->
+          <div class="mc-wrap" id="mcWrap" style="display:none;"></div>
+          <!-- Text input -->
+          <div class="tinput-wrap" id="tinputWrap" style="display:none;">
+            <label id="tinputLabel"></label>
+            <textarea id="tinput" class="daf-inp recall-inp" rows="3" placeholder="" onkeydown="handleInputKey(event)"></textarea>
+          </div>
+          <!-- Locate single line input -->
+          <div class="tinput-wrap" id="locateInputWrap" style="display:none;">
+            <label>Enter the daf number or Hebrew letter:</label>
+            <input type="text" class="daf-inp" id="locateInput" placeholder="e.g. 15 or טו" onkeydown="if(event.key==='Enter')submitLocate()">
+          </div>
+          <!-- Try-again strip -->
+          <div class="try-again-strip" id="tryAgainStrip">
+            <span>❌ Not quite — try again!</span>
+            <span class="ta-count" id="taCount"></span>
+            <button class="btn btn-ghost btn-sm" onclick="retryInput()">Try Again</button>
+          </div>
+          <!-- Hint -->
+          <div class="hint-strip" id="hintStrip"><strong>Hint:</strong> <span id="hintText"></span></div>
+          <!-- Actions -->
+          <div class="qact">
+            <button class="btn btn-navy btn-sm" id="submitBtn" onclick="submitAnswer()">Check</button>
+            <button class="btn btn-ghost btn-sm" onclick="showHint()" id="hintBtn">💡 Hint</button>
+            <button class="btn btn-ghost btn-sm" onclick="revealAnswer()">👁 Reveal</button>
+            <div class="qact-right">
+              <button class="btn btn-ghost btn-sm" onclick="skipQ()">Skip →</button>
+            </div>
+          </div>
+          <!-- AI box -->
+          <div class="ai-box" id="aiBox"><div class="ail">AI Assessment</div><div id="aiText"></div></div>
+          <!-- Answer panel -->
+          <div class="ans-panel" id="ansPanel">
+            <div class="apl">Full Answer — Daf <span id="ansDaf"></span></div>
+            <div id="ansContent"></div>
+            <div class="story-box" id="ansStory" style="display:none;"></div>
+          </div>
+          <!-- Auto-advance indicator -->
+          <div class="auto-next" id="autoNext" style="display:none;">
+            <div class="auto-ring"></div> Next question…
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="qResults" style="display:none;">
+      <div class="qcard">
+        <div class="qcard-bar"></div>
+        <div class="res-wrap">
+          <div style="font-size:2rem;">🏆</div>
+          <div class="res-score" id="resScore">—</div>
+          <div class="res-breakdown">
+            <span style="color:var(--green)" id="resC">—</span>
+            <span style="color:#887000" id="resP">—</span>
+            <span style="color:var(--red)" id="resW">—</span>
+          </div>
+          <div style="display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;">
+            <button class="btn btn-gold" onclick="retryMissed()">🔁 Retry Missed</button>
+            <button class="btn btn-navy" onclick="beginQuiz()">New Session</button>
+            <button class="btn btn-ghost" onclick="goTo('home')">Home</button>
+          </div>
+          <div class="missed-list" id="missedList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PROGRESS -->
+<div id="s-progress" class="screen">
+  <p class="sh">Mastery Progress</p>
+  <div style="display:flex;gap:.7rem;flex-wrap:wrap;margin-bottom:1rem;font-size:.76rem;">
+    <span><span style="color:var(--c1)">●</span> 💎 Diamond</span>
+    <span><span style="color:var(--c2)">●</span> 🥇 Gold</span>
+    <span><span style="color:var(--c3)">●</span> 🥈 Silver</span>
+    <span><span style="color:var(--c4)">●</span> 🥉 Bronze</span>
+    <span><span style="color:var(--c5)">●</span> 📖 Learning</span>
+  </div>
+  <div id="progressContent"></div>
+</div>
+
+<!-- SETTINGS (includes library, account, API keys) -->
+<div id="s-settings" class="screen">
+  <p class="sh">Settings</p>
+
+  <!-- ACCOUNT SECTION -->
+  <div class="ss" id="ssAccount">
+    <h3>Account</h3>
+    <!-- Logged out state -->
+    <div id="authLoggedOut">
+      <p style="font-size:.83rem;color:var(--muted);margin-bottom:.8rem;">Sign in with Google (free) to sync your progress, mastery scores, and custom notes across devices.</p>
+      <button class="btn btn-navy" onclick="signInWithGoogle()" id="googleSignInBtn">
+        <svg width="16" height="16" viewBox="0 0 48 48" style="margin-right:.2rem"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>
+        Sign in with Google
+      </button>
+      <div id="authError" style="margin-top:.6rem;font-size:.8rem;color:var(--red);display:none;"></div>
+      <div style="margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--border);">
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:.4rem;">Or use without an account (data saved in this browser only):</div>
+        <div style="display:flex;gap:.5rem;align-items:center;">
+          <input type="text" id="guestNameInput" placeholder="Your name" style="border:1.5px solid var(--border);border-radius:7px;padding:.38rem .65rem;font-size:.83rem;font-family:'DM Sans',sans-serif;background:var(--cream);width:160px;">
+          <button class="btn btn-ghost btn-sm" onclick="saveGuestName()">Continue as guest</button>
+        </div>
+      </div>
+    </div>
+    <!-- Logged in state -->
+    <div id="authLoggedIn" style="display:none;">
+      <div style="display:flex;align-items:center;gap:.9rem;margin-bottom:.8rem;">
+        <img id="authPhoto" src="" alt="" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--gold);">
+        <div>
+          <div style="font-weight:700;color:var(--navy);" id="authName">—</div>
+          <div style="font-size:.78rem;color:var(--muted);" id="authEmail">—</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" onclick="syncToCloud()">Sync progress to cloud</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadFromCloud()">Load from cloud</button>
+        <button class="btn btn-ghost btn-sm" onclick="syncSharedTractatesToCloud()">Publish tractates</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadSharedTractatesFromCloud()">Load tractates</button>
+        <button class="btn btn-ghost btn-sm" onclick="testFirebaseConnection()">Check connection</button>
+        <button class="btn btn-red btn-sm" onclick="signOut()">Sign out</button>
+      </div>
+      <div id="syncStatus" style="font-size:.78rem;color:var(--muted);margin-top:.5rem;"></div>
+      <div id="accountSummary" style="font-size:.78rem;color:var(--muted);margin-top:.45rem;"></div>
+    </div>
+
+    <div style="margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--border);">
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:.4rem;">Firebase Project</div>
+      <textarea id="firebaseConfigInput" placeholder="Built-in Firebase project is active. Paste custom config only if switching projects." style="width:100%;min-height:88px;resize:vertical;border:1.5px solid var(--border);border-radius:8px;padding:.5rem .65rem;font-size:.78rem;line-height:1.5;font-family:monospace;background:var(--cream);"></textarea>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.55rem;">
+        <button class="btn btn-navy btn-sm" onclick="saveFirebaseConfig()">Save Custom Config</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearFirebaseConfig()">Reset Built-in Config</button>
+      </div>
+      <div id="firebaseConfigStatus" style="margin-top:.45rem;font-size:.78rem;color:var(--muted);"></div>
+    </div>
+  </div>
+
+  <!-- API KEYS -->
+  <div class="ss">
+    <h3>AI Keys</h3>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:.8rem;">Keys are stored only in your browser (or in your Google account if signed in). Used for AI grading of recall answers and for parsing PDF tractates.</p>
+    <div class="srow">
+      <div><label>Anthropic API Key <small>Best for PDF parsing — Claude reads PDFs natively. Starts with sk-ant-</small></label></div>
+      <input type="password" id="anthropicKeyInput" placeholder="sk-ant-…" style="width:200px;">
+    </div>
+    <div class="srow">
+      <div><label>OpenAI API Key <small>For AI grading of typed answers. Starts with sk-</small></label></div>
+      <input type="password" id="openaiKeyInput" placeholder="sk-…" style="width:200px;">
+    </div>
+    <div style="margin-top:.65rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+      <button class="btn btn-navy btn-sm" onclick="saveKeys()">Save Keys</button>
+      <button class="btn btn-ghost btn-sm" onclick="clearKeys()">Clear All</button>
+      <span id="keyStatus" style="font-size:.78rem;color:var(--muted);"></span>
+    </div>
+  </div>
+
+  <!-- LIBRARY -->
+  <div class="ss">
+    <h3>Library</h3>
+    <div class="lib-tabs" style="margin-bottom:.9rem;">
+      <div class="lib-tab on" onclick="libTab('learned',this)">Learned Pages</div>
+      <div class="lib-tab" onclick="libTab('pdf',this)">Import PDF</div>
+      <div class="lib-tab" onclick="libTab('upload',this)">Upload JSON</div>
+      <div class="lib-tab" onclick="libTab('manual',this)">Add Manually</div>
+    </div>
+
+    <!-- LEARNED PAGES -->
+    <div id="libLearned">
+      <p style="font-size:.8rem;color:var(--muted);margin-bottom:.7rem;">Tap any daf to mark it as learned. Only learned dafim get quizzed. Drag across to mark a range at once.</p>
+      <div id="libLearnedContent"></div>
+    </div>
+
+    <!-- PDF IMPORT -->
+    <div id="libPdf" style="display:none;">
+      <div id="pdfNeedKey" style="display:none;background:rgba(139,32,32,.07);border:1.5px solid rgba(139,32,32,.3);border-radius:9px;padding:.8rem;margin-bottom:.8rem;font-size:.83rem;color:var(--red);">
+        An Anthropic API key is required for PDF parsing. <button class="btn btn-ghost btn-sm" style="margin-left:.4rem;" onclick="document.getElementById('anthropicKeyInput').focus()">Add key above</button>
+      </div>
+
+      <div id="pdfStep1">
+        <p style="font-size:.82rem;color:var(--muted);margin-bottom:.8rem;">Upload a Zichru booklet PDF — the AI extracts every daf automatically. <strong>Requires Anthropic key</strong> (Claude reads PDFs natively). OpenAI keys can also work via text extraction.</p>
+        <div class="upload-zone" id="pdfUploadZone"
+          onclick="document.getElementById('pdfFileInput').click()"
+          ondragover="event.preventDefault();this.classList.add('drag')"
+          ondragleave="this.classList.remove('drag')"
+          ondrop="handlePdfDrop(event)">
+          <div class="uz-icon">📄</div>
+          <strong>Click or drag a Zichru PDF here</strong>
+          <p>Any standard Zichru booklet PDF</p>
+        </div>
+        <input type="file" id="pdfFileInput" accept=".pdf" multiple style="display:none" onchange="handlePdfSelect(event)">
+
+        <div style="display:flex;align-items:center;gap:.6rem;margin:.9rem 0;color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;">
+          <div style="flex:1;height:1px;background:var(--border);"></div>or<div style="flex:1;height:1px;background:var(--border);"></div>
+        </div>
+
+        <div class="mfield">
+          <label>Paste a PDF link or Google Drive share link</label>
+          <div style="display:flex;gap:.5rem;">
+            <input type="text" id="pdfUrlInput" placeholder="https://drive.google.com/file/d/…  or  https://example.com/booklet.pdf" style="flex:1;">
+            <button class="btn btn-navy btn-sm" onclick="parsePdfFromUrl()">Fetch & Extract</button>
+          </div>
+          <p style="font-size:.74rem;color:var(--muted);margin-top:.35rem;">For Drive links, make sure sharing is set to "Anyone with the link can view". Useful for files that update live in your Drive — re-run this any time to pull the latest version.</p>
+        </div>
+
+        <div style="margin-top:.7rem;">
+          <label style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);display:block;margin-bottom:.3rem;">Tractate name (optional override)</label>
+          <input type="text" id="pdfTractateOverride" placeholder="e.g. Shabbos — leave blank to auto-detect" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:.4rem .65rem;font-size:.83rem;background:var(--cream);font-family:'DM Sans',sans-serif;">
+        </div>
+      </div>
+
+      <div id="pdfStep2" style="display:none;">
+        <div style="background:var(--parchment);border:1px solid var(--border);border-radius:11px;padding:1rem;">
+          <div style="display:flex;align-items:center;gap:.7rem;margin-bottom:.8rem;">
+            <div style="width:24px;height:24px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--navy);animation:spin .7s linear infinite;flex-shrink:0;"></div>
+            <div style="font-weight:600;color:var(--navy);font-size:.88rem;" id="pdfStatusTitle">Sending to AI…</div>
+          </div>
+          <div style="background:var(--border);border-radius:100px;height:5px;overflow:hidden;margin-bottom:.7rem;">
+            <div id="pdfProgressBar" style="height:100%;background:linear-gradient(90deg,var(--navy),var(--gold));border-radius:100px;width:5%;transition:width .5s;"></div>
+          </div>
+          <div id="pdfLog" style="font-size:.73rem;color:var(--muted);font-family:monospace;max-height:100px;overflow-y:auto;line-height:1.7;"></div>
+        </div>
+      </div>
+
+      <div id="pdfStep3" style="display:none;">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:11px;padding:1rem;">
+          <div style="font-weight:700;color:var(--navy);margin-bottom:.3rem;" id="pdfDoneTitle">Extraction complete!</div>
+          <div style="font-size:.78rem;color:var(--muted);margin-bottom:.7rem;" id="pdfDoneSub"></div>
+          <div id="pdfPreview" style="max-height:200px;overflow-y:auto;font-size:.73rem;border:1px solid var(--border);border-radius:7px;padding:.6rem;background:var(--parchment);margin-bottom:.8rem;font-family:monospace;white-space:pre-wrap;"></div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+            <button class="btn btn-gold btn-sm" onclick="confirmPdfImport()">Import All Dafim</button>
+            <button class="btn btn-ghost btn-sm" onclick="downloadPdfJson()">Download JSON</button>
+            <button class="btn btn-ghost btn-sm" onclick="resetPdfImport()">Start over</button>
+          </div>
+          <div id="pdfImportFeedback" style="margin-top:.5rem;font-size:.8rem;"></div>
+        </div>
+      </div>
+
+      <div id="pdfStep4" style="display:none;">
+        <div style="background:rgba(139,32,32,.06);border:1.5px solid rgba(139,32,32,.3);border-radius:10px;padding:.9rem;">
+          <div style="font-weight:700;color:var(--red);margin-bottom:.35rem;">Extraction failed</div>
+          <div style="font-size:.82rem;" id="pdfErrorMsg"></div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:.7rem;" onclick="resetPdfImport()">Try again</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- UPLOAD JSON -->
+    <div id="libUpload" style="display:none;">
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="handleFileDrop(event)">
+        <div class="uz-icon">📄</div>
+        <strong>Click or drag a JSON file here</strong>
+        <p>Zichru-format tractate JSON</p>
+      </div>
+      <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileSelect(event)">
+      <div id="uploadFeedback" style="margin:.5rem 0;font-size:.83rem;"></div>
+      <div class="fmt-example" style="margin-top:.7rem;">{"tractate":"Shabbos","hebrew":"שבת","chapters":[{"name":"פרק א","dafim":[2,3]}],"dafim":[{"n":2,"sw":"House","sh":"בית","st":"Story…","pts":[{"ti":"Title","s":"Summary.","d":"Detail."},{"ti":"Title 2","s":"Summary.","d":"Detail."},{"ti":"Title 3","s":"Summary.","d":"Detail."}]}]}</div>
+    </div>
+
+    <!-- MANUAL ADD -->
+    <div id="libManual" style="display:none;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin-bottom:.5rem;">
+        <div class="mfield"><label>Tractate</label><input id="maTractate" placeholder="e.g. Shabbos"></div>
+        <div class="mfield"><label>Daf #</label><input id="maDaf" type="number" placeholder="7"></div>
+        <div class="mfield"><label>Siman word</label><input id="maSimanW" placeholder="Window"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.5rem;">
+        <div class="mfield"><label>Siman Hebrew</label><input id="maSimanH" placeholder="חלון"></div>
+        <div class="mfield"><label>Hebrew letters</label><input id="maHebNum" placeholder="ז"></div>
+      </div>
+      <div class="mfield"><label>Siman story</label><textarea id="maSiman" placeholder="Memorable story…"></textarea></div>
+      <div class="pt-add-group"><label>Point 1</label>
+        <input id="maPt1ti" placeholder="Title" style="margin-bottom:.25rem;"><input id="maPt1s" placeholder="One-line summary" style="margin-bottom:.25rem;"><textarea id="maPt1d" placeholder="Full detail" rows="2"></textarea></div>
+      <div class="pt-add-group" style="margin-top:.4rem;"><label>Point 2</label>
+        <input id="maPt2ti" placeholder="Title" style="margin-bottom:.25rem;"><input id="maPt2s" placeholder="One-line summary" style="margin-bottom:.25rem;"><textarea id="maPt2d" placeholder="Full detail" rows="2"></textarea></div>
+      <div class="pt-add-group" style="margin-top:.4rem;"><label>Point 3</label>
+        <input id="maPt3ti" placeholder="Title" style="margin-bottom:.25rem;"><input id="maPt3s" placeholder="One-line summary" style="margin-bottom:.25rem;"><textarea id="maPt3d" placeholder="Full detail" rows="2"></textarea></div>
+      <div style="display:flex;gap:.5rem;margin-top:.7rem;">
+        <button class="btn btn-gold btn-sm" onclick="saveManualDaf()">Save Daf</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearManualForm()">Clear</button>
+      </div>
+      <div id="maFeedback" style="margin-top:.4rem;font-size:.8rem;"></div>
+    </div>
+  </div>
+
+  <!-- DATA -->
+  <div class="ss">
+    <h3>Data</h3>
+    <div class="srow">
+      <div><label>Export progress <small>Download all mastery data as JSON</small></label></div>
+      <button class="btn btn-ghost btn-sm" onclick="exportData()">Export</button>
+    </div>
+    <div class="srow">
+      <div><label>Reset mastery <small>Clears scores, keeps notes and bookmarks</small></label></div>
+      <button class="btn btn-red btn-sm" onclick="doReset()">Reset</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ════════════════════ DATA ════════════════════ */
+const HN=['','א','ב','ג','ד','ה','ו','ז','ח','ט','י','יא','יב','יג','יד','טו','טז','יז','יח','יט','כ','כא','כב','כג','כד','כה','כו','כז','כח','כט','ל','לא','לב','לג','לד','לה','לו','לז','לח','לט','מ','מא','מב','מג','מד','מה','מו','מז','מח','מט','נ','נא','נב','נג','נד','נה','נו','נז','נח','נט','ס','סא','סב','סג','סד'];
+const h=n=>HN[n]||String(n);
+
+const CHAPS={Berachos:[
+  {name:'פרק א – מאמתי',dafim:[2,3,4,5,6,7,8,9,10,11,12,13]},
+  {name:'פרק ב – היה קורא',dafim:[13,14,15,16,17]},
+  {name:'פרק ג – מי שמתו',dafim:[17,18,19,20,21,22,23,24,25]},
+  {name:'פרק ד – תפילת השחר',dafim:[26,27,28,29,30]},
+  {name:'פרק ה – אין עומדין',dafim:[30,31,32,33,34]},
+  {name:'פרק ו – כיצד מברכין',dafim:[35,36,37,38,39,40,41,42,43,44]},
+  {name:'פרק ז – שלשה שאכלו',dafim:[45,46,47,48,49,50,51]},
+  {name:'פרק ח – אלו דברים',dafim:[51,52,53]},
+  {name:'פרק ט – הרואה',dafim:[54,55,56,57,58,59,60,61,62,63,64]}
+]};
+
+const D_RAW={
+2:{n:2,t:'Berachos',sw:'House',sh:'בית',st:'A man rushes into his house exactly at Tzais to recite the evening Krias Shema so he can join the Kohen and poor person who just sat down in the dining room.',pts:[
+{ti:'Time for Krias Shema at night',s:'Shema may be said from when Kohanim may eat Terumah (Tzais HaKochavim).',d:'The opening Mishna discusses the time to recite Krias Shema at night.'},
+{ti:'Kohen can eat Terumah at Tzais',s:'A tevul yom Kohen may eat Terumah at Tzais without waiting until morning.',d:'A Kohen who was a tevul yom can begin to eat his terumah at tzais, without waiting until the next day.'},
+{ti:'Six opinions for earliest time for Shema',s:'Six Tannaim debate the earliest time — one is when a poor person sits down to eat dinner.',d:'The Gemara introduces six opinions regarding the earliest time to recite Shema at night. One of them is when a poor person begins to eat his dinner.'}
+]},
+3:{n:3,t:'Berachos',sw:'Camel',sh:'גמל',st:'Three watchmen on camels enter a dangerous ruin when they hear music and discover a man playing harp.',pts:[
+{ti:'Three heavenly watches of the night',s:'During each of the 3 night-watches Hashem roars like a lion mourning the Churban.',d:'Rabbi Eliezer identifies three heavenly watches in the evening when Hashem roars like a lion, lamenting that the sins of His children caused the destruction of the Beis HaMikdash.'},
+{ti:'Cannot enter a ruin (3 reasons)',s:'Three dangers: suspicion of immorality, danger of collapse, and harmful mazikin.',d:'Three reasons one may not enter a churvah (ruin): a. suspicion of inappropriate behavior, b. the danger of collapse, c. the danger of harmful mazikin found there.'},
+{ti:"Dovid HaMelech's harp",s:'The northern wind blew across Dovid\'s harp at midnight, waking him to sing Hashem\'s praises.',d:"The northern wind would blow across Dovid Hamelech's harp exactly at midnight, upon which he would wake up and sing Hashem's praises for the rest of the night."}
+]},
+4:{n:4,t:'Berachos',sw:'Door',sh:'דלת',st:"A massive door at the shul had a clock that flashed Ashrei three times at midnight to remind the minyan to be somech geulah l'tefillah at Maariv.",pts:[
+{ti:"Why Moshe said 'כחצות' (approximately midnight)",s:'Moshe said "approximately" so the Egyptians would not question Hashem\'s precision at Makos Bechoros.',d:'Moshe said כחצות instead of giving the exact time, so the Egyptians would not question Hashem\'s precision when carrying out makos bechoros.'},
+{ti:"Somech Geulah l'Tefillah at Maariv",s:'Machlokes whether one must juxtapose Geulah to Tefillah at Maariv; if so, Hashkivenu counts.',d:"There is a machlokes whether one is required to be somech geulah l'tefillah at night. If required, v'hashkivenu is considered a long geulah."},
+{ti:'Saying Ashrei three times a day',s:'One who says Ashrei 3x daily is guaranteed Olam Haba — covers all aleph-beis letters and includes פותח את ידך.',d:'One who says Ashrei three times a day is guaranteed a place in Olam Haba because: a. uses all aleph-beis letters to praise Hashem (except nun). b. includes the passuk of פותח את ידך.'}
+]},
+5:{n:5,t:'Berachos',sw:'Hay',sh:'ה',st:'A sick person on a bed of hay saying Shema al HaMita with one hand and a sword in the other is visited by a Rabbi holding three gifts who has come to heal him.',pts:[
+{ti:'Krias Shema al HaMita protects like a sword',s:'Reciting Shema before sleep is like holding a double-edged sword — it protects against mazikin.',d:'One who recites krias shema al hamita is likened to one who holds a double edged sword to slay mazikin.'},
+{ti:'Three good gifts acquired through Yisurin',s:'Torah, Eretz Yisrael, and Olam Haba can only be acquired through suffering.',d:'HaKadosh Baruch Hu gave three good gifts to klal Yisroel which all have to be acquired through yisurin: Torah, eretz Yisroel, and Olam Haba.'},
+{ti:"Cannot free oneself from one's own prison",s:"Even R' Yochanan, who healed others, needed someone else to heal him — אין חבוש מתיר עצמו.",d:"We learn that a person cannot free himself from his own prison from the fact that R' Yochanan needed someone to heal him even though he had the capacity to heal others."}
+]},
+6:{n:6,t:'Berachos',sw:'Sword',sh:'ו',st:'A person takes out a sword from his makom kavua next to special tefillin and dances with it to gladden the choson — meriting Torah given with five sounds.',pts:[
+{ti:'Importance of a Makom Kavua for davening',s:'Having a fixed place for prayer shows one is a talmid of Avraham Avinu and earns Hashem\'s help.',d:"One who has a set place for davening is considered a talmid of Avraham Avinu and will receive similar help from Hashem."},
+{ti:"Hashem's Tefillin",s:"Hashem wears tefillin with parshios praising Klal Yisrael's uniqueness: 'Who is like Your people Israel?'",d:'Hashem wears tefillin with parshios that proclaim the uniqueness of klal Yisroel, such as מי כעמך...'},
+{ti:'Importance of being Mesameach a Choson',s:'Not gladdening the choson violates five kolos; gladdening him merits Torah given with five sounds.',d:"One who benefits from a wedding banquet without being משמח חתן violates five קולות. If he does gladden the חתן, then he merits the Torah which was given with five 'sounds'."}
+]},
+7:{n:7,t:'Berachos',sw:'Gun',sh:'ז',st:'A rasha has his gun poised over a rooster on one foot to calculate when to shoot a Tzadik whose talmid is washing his Rebbe\'s hands. (He misses.)',pts:[
+{ti:'The moment Hashem gets angry',s:"Bilaam knew the precise moment Hashem gets angry each day (a rega), signaled by the rooster's comb turning pale.",d:'Bilaam knew the exact moment when HaKadosh Baruch Hu gets angry everyday which lasts a רגע. Rabbi Yehoshua knew it was when the rooster\'s comb turns pale and stands on one foot.'},
+{ti:'Tzadik v\'ra lo',s:"Moshe asked after the chet ha'egel why bad happens to the righteous and why the wicked often prosper.",d:"Moshe requested after the chet ha'egel to understand tzaddik v'ra lo v'rasha v'tov lo, why bad occurs to the righteous and why the evil often prosper."},
+{ti:'Serving a Rebbe is greater than learning from him',s:'We learn from Elisha pouring water on Eliyahu\'s hands that שמושה של תורה is greater than learning.',d:"We learn from the fact that Elisha's relationship to Eliyahu is characterized by his pouring water on his Rebbe's hands that attending to a Talmud Chochom is greater than learning from him."}
+]},
+8:{n:8,t:'Berachos',sw:'Challah',sh:'ח',st:'Bochurim stand around a massive four-amah-long segula challah inserting tefillos for a good shidduch written in Hebrew and Aramaic.',pts:[
+{ti:'Tefillos requiring a timely response',s:'Five things to daven for that need timely response: good wife, Torah, easy death, burial, nearby bathroom.',d:"Things a person should daven for that require a timely response: a good wife, Torah, an easy death, a burial, a nearby bathroom — from 'at the time of finding' (Psalms 32:6)."},
+{ti:'Hashem resides in 4 amos of Halacha',s:'Since the Churban, Hashem\'s presence in this world is only in the four amos of halachah.',d:'Since the time of the destruction of the Beis HaMikdash, Hashem only has the four amos of Halachah in His world.'},
+{ti:'Shnayim Mikra v\'Echad Targum',s:'Complete the weekly parsha twice in Hebrew and once in Aramaic — meriting long life.',d:'One should always complete the weekly Parsha with the congregation reading shnayim mikra v\'echad targum. One who does so merits that his days and years are prolonged.'}
+]},
+9:{n:9,t:'Berachos',sw:'Teapot',sh:'ט',st:'The person pouring tea at the Korban Pesach sees his friend four amos away wearing a souvenir crown bought to greet the King.',pts:[
+{ti:'Latest time to eat the Korban Pesach',s:"Machlokes: before chatzos or until morning? Depends on when 'chipazon' (haste) occurred.",d:"There is a machlokes whether the korban Pesach must be eaten before chatzos or until morning, based on whether שעת חפזון refers to the Egyptians rushing out Bnei Yisroel (night) or Bnei Yisroel leaving (morning)."},
+{ti:'Earliest time for morning Krias Shema',s:'One may recite morning Shema when one can recognize a friend from four amos away.',d:'The Mishnah discusses the proper time to recite Krias Shema in the morning; the Gemara concludes it is when one can recognize (משיכיר) a friend at a distance of four amos.'},
+{ti:'Value of greeting a king',s:'One should greet a Jewish king; even greeting a non-Jewish king helps appreciate a Jewish king\'s honor in Olam Haba.',d:"One should always try to greet a Jewish king. Even greeting a non-Jewish king is valuable so in Olam Haba one will be able to better appreciate the kavod given to a Jewish king."}
+]},
+10:{n:10,t:'Berachos',sw:'A Yid',sh:'י',st:'A Yid with a special neshama has a sword at his neck but keeps hoping, singing ברכי נפשי five times and refusing a meal before davening.',pts:[
+{ti:'5 ways the Neshama is like Hashem',s:"Dovid said 'Bless Hashem my soul' 5x — corresponding to 5 parallels between the neshama and Hashem.",d:"We learn from the five times Dovid HaMelech stated 'ברכי נפשי' that the neshamah is comparable to HaKadosh Baruch Hu in five ways: fills the world, sustains it, sees but is not seen, is tahor, and resides in inner chambers."},
+{ti:'Never give up hope',s:'Even with a sword at one\'s neck, one should never stop praying for mercy — learned from Chizkiyahu.',d:"A person should never give up hope no matter how dire a situation seems. Even if a sword is placed upon his neck, one should never refrain from praying for mercy."},
+{ti:'Do not eat before davening Shacharis',s:"Forbidden to eat before Shacharis — derived from 'לא תאכלו על הדם'.",d:"One should not eat before he davens. Learned from 'לא תאכלו על הדם' — you may not eat in the morning before you pray upon your 'blood,' i.e. before praying for your wellbeing."}
+]},
+11:{n:11,t:'Berachos',sw:'Stars',sh:'יא',st:'A man lying down reciting Shema looks up at the stars shaped like a Sefer Torah, reminding him to say all versions of Birkas HaTorah.',pts:[
+{ti:'The position to recite Shema',s:'Beis Shammai: must lie at night and stand in morning. Beis Hillel: any position is valid.',d:'According to Beis Shammai, Krias Shema at night must be recited lying down and in the morning standing up. According to Beis Hillel, Shema can be recited in any position.'},
+{ti:'7 Birkas Krias Shema',s:'3 berachos in the morning and 4 at night surround Shema.',d:'The fourth Mishnah of the Perek discusses the number of berachos accompanying Krias Shema: three in the morning and four at night.'},
+{ti:'All versions of Birkas HaTorah are recited',s:'Since the Gemara lists multiple formulations of Birkas HaTorah, we recite all of them before learning.',d:'Since the Gemara lists the different versions of birkas haTorah, we recite them all before beginning to learn.'}
+]},
+12:{n:12,t:'Berachos',sw:'Brothers',sh:'יב',st:'Twelve brothers carrying Aseres HaDibros posters and 5 pairs of tzitzis march toward minim trying to read Parshas Balak.',pts:[
+{ti:'Aseres HaDibros not included in Krias Shema',s:"Chazal wanted to add the Dibros before Shema but stopped to prevent minim from claiming only the Dibros matter.",d:"Chazal sought to establish the practice of reading the Aseres HaDibros before reciting Krias Shema in the morning in the provinces, but soon abolished it because they feared the minim would convince the ignorant that the rest of the Torah is false."},
+{ti:'Parshas Balak not included in Krias Shema',s:'Chazal wanted to include Parshas Balak (mentions lying down and rising) but refrained due to tircha d\'tzibbura.',d:"Chazal wanted to include Parshas Balak in Krias Shema because it includes a reference to lying down and getting up. They refrained because of tircha d'tzibbura."},
+{ti:'5 reasons Parshas Tzitzis is in Krias Shema',s:'Tzitzis was included for: mitzvas tzitzis, yetzias Mitzrayim, yoke of mitzvos, avoiding heretical thoughts, avoiding avodah zara thoughts.',d:'The parsha of tzitzis was included in Krias Shema for five reasons: mitzvas tzitzis, yetzias Mitzrayim, yoke of mitzvos, avoiding heretical opinions, avoiding idolatrous thoughts.'}
+]},
+13:{n:13,t:'Berachos',sw:'Bar Mitzvah Boy',sh:'יג',st:"A bar mitzvah boy recites his first Shema from a siddur embossed 'Avraham (not Avram)' with great kavana, prolonging Echad for over a minute.",pts:[
+{ti:"Calling Avraham 'Avram' is forbidden",s:'Bar Kappara: calling Avraham "Avram" violates an asei; R\' Eliezer: violates a lo sa\'aseh.',d:"Bar Kappara taught that one who calls Avraham by the name Avram transgresses a מצות עשה, whereas Rebbe Eliezer says he transgresses a מצות לא תעשה."},
+{ti:'Kavana for Krias Shema',s:'Opinions: first passuk; first 3 pesukim; first parsha; or first two parshios require kavana.',d:'The various opinions regarding how much of Krias Shema requires kavana: the first passuk of שמע, the first three pesukim up to על לבבך, the first parsha, or the first two parshios.'},
+{ti:'Prolonging the word Echad',s:"Prolonging the dalet of Echad merits longer life; R' Chiya: accept Hashem's kingship in all 7 directions.",d:"Anyone who prolongs the pronunciation of the word 'Echad' will have his days and years prolonged. R' Chiya taught it is enough to mentally acknowledge Hashem's malchus in heaven, earth, and the four directions."}
+]},
+14:{n:14,t:'Berachos',sw:'Hand',sh:'יד',st:"The kehilla davening Hallel was interrupted by an Israeli shaking their hands, having already said his abbreviated Shema — wearing a shirt reading 'LTD' for learn, teach, do.",pts:[
+{ti:'Interruptions during Hallel and Megillah',s:'On days one completes Hallel, may pause between paragraphs to greet someone; on partial Hallel days, even mid-paragraph.',d:'On days when one must complete the full Hallel, he may interrupt between paragraphs to greet an esteemed person. On days of partial Hallel, he can interrupt even in the middle of a paragraph.'},
+{ti:'Eretz Yisrael had abbreviated third parsha of Shema',s:"In Eretz Yisrael they said only 'I am Hashem your G-d — it is true' plus a short yetzias Mitzrayim.",d:"The minhag in Eretz Yisroel was to abbreviate the third parsha of Shema and only recite: 'דבר אל בני ישראל...אני ה' אלקיכם אמת' followed by a small paragraph mentioning yetzias mitzrayim."},
+{ti:"R' Shimon bar Yochai — order of parshios",s:'Shema: learn, teach, do. Vehaya: teach and do. Vayomer: do only.',d:"R' Shimon bar Yochai explains the order: שמע includes learning, teaching, and doing Torah; והיה אם שמוע only teaching and doing; ויאמר only doing."}
+]},
+15:{n:15,t:'Berachos',sw:'Fruit Bowl',sh:'טו',st:"A fruit bowl with handles shaped like two big ears sits under a washing sink, containing the words 'על לבבך' written on two separate pieces of paper.",pts:[
+{ti:'Importance of washing before Shacharis',s:'One should travel up to a mil back and a parsah forward to find water for netilas yadayim before tefillah.',d:'Washing before tefillah is so important that one should travel back almost a mil and forward as far as a parsah in order to find water.'},
+{ti:'Machlokes — must one hear himself recite Shema?',s:'Major dispute: must one hear himself saying Shema to fulfill the mitzva?',d:'A significant amount of the daf focuses on the machlokes in the Mishna regarding whether one is required to hear himself recite Krias Shema to fulfill the mitzva.'},
+{ti:'Putting spaces between words',s:"One must pause between words that run together (e.g. 'al levavecha') to articulate Torah faultlessly.",d:"From 'ולמדתם' we learn 'שיהא לימודך תם' — one's learning should be pure. Therefore one should pause between words that tend to get attached, such as 'על לבבך'."}
+]},
+17:{n:17,t:'Berachos',sw:'Used Car',sh:'יז',st:'The great Rabbis say extra tefillos next to a holy pink used car used by the mother to bring children to school, as a haughty chassan drives by in a limousine.',pts:[
+{ti:"Tefillos of Tanna'im and Amora'im",s:'Various Rabbis recited personal prayers after Shemoneh Esrei — some became part of our liturgy.',d:"The individual tefillos various Tanna'im and Amora'im recited after Shemoneh Esrei, including 'אלקי נצור לשוני מרע' and 'אלקי עד שלא נוצרתי'."},
+{ti:'Women merit Olam Haba',s:"Women earn Olam Haba by bringing children to Torah study and waiting for their husbands to return from the Beis Midrash.",d:'Women merit Olam Haba for bringing their children to school and letting their husbands learn, even though they have to wait for them to return.'},
+{ti:'Concerns regarding haughtiness',s:'One must avoid appearing haughty — e.g. a choson reading Shema on his wedding night could look arrogant.',d:'The concern over doing things that might make a person look haughty, such as a chassan reciting Krias Shema on his wedding night.'}
+]},
+26:{n:26,t:'Berachos',sw:'Coup',sh:'כו',st:"Soldiers burst into the shul but didn't notice the man davening his second Maariv, transfixed by a Sukkah poster depicting the Avos.",pts:[
+{ti:'Excrement in front — no Shema permitted',s:"If excrement is in one's field of vision, Shema is forbidden regardless of distance.",d:"According to Rav Huna, when excrement is behind a person he must be 4 amos away. If it's in front, Shema is prohibited as long as it's in one's field of vision."},
+{ti:'Making up for missed tefillos (Tashlumin)',s:"If one missed Minchah, he davens Maariv twice. Various other cases have similar make-up rules.",d:"One may make up for missed tefillos (תשלומין): missed Minchah — daven Maariv twice; missed Minchah Erev Shabbos — daven Shabbos Maariv twice; missed Shabbos Minchah — daven weekday Maariv twice with Havdalah in the first Maariv."},
+{ti:'Origin of the three daily tefillos',s:'Machlokes: the Avos instituted tefillah vs. they correspond to the daily Tamid offerings.',d:"Machlokes whether davening three times a day originates with the Avos (אבות תקנום) or the Anshei Knesses Hagdolah, who instituted the tefillos to correspond to the daily tamid offerings (כנגד תמידין תקנום)."}
+]},
+27:{n:27,t:'Berachos',sw:'Kazoo',sh:'כז',st:'A boy blew his kazoo during Minchah after plag whenever someone passed in front of a davener, proudly standing next to the new Nasi.',pts:[
+{ti:'Latest time for Minchah — Plag or nightfall?',s:"One may follow R' Yehudah (until plag) or Rabbanan (until nightfall) — but cannot combine both.",d:"One may follow either the Rabbanan (daven Minchah until nightfall) or R' Yehudah (until plag Haminchah, 10¾ hours into the day). One may not do a split decision."},
+{ti:'Walking in front of someone davening Shemoneh Esrei',s:'Forbidden to pass in front of someone who is davening Shemoneh Esrei.',d:"One may not pass in front of someone who is davening Shemoneh Esrei. Furthermore, one may not daven alongside or behind his Rebbi."},
+{ti:"Deposing R' Gamliel",s:"The machlokes over Maariv led to R' Gamliel being deposed and R' Elazar ben Azarya appointed Nasi.",d:"The machlokes between R' Gamliel and R' Yehoshua over whether Maariv is voluntary or obligatory led to R' Gamliel being deposed and R' Elazar ben Azarya being appointed Nasi."}
+]},
+28:{n:28,t:'Berachos',sw:'Strongman',sh:'כח',st:'The big strongman let hundreds of talmidim into the beis midrash to visit their two sick Rabbanim, resolve halachos, and daven for their refuah.',pts:[
+{ti:'Opening Beis Midrash to all talmidim',s:"When R' Elazar ben Azarya became Nasi, the doors opened to all — hundreds entered and resolved open halachic questions.",d:"On the day R' Elazar ben Azaryah became Nasi, the doors were opened to all talmidim who had been excluded by R' Gamliel. All heretofore unresolved halachos were resolved that day. Masechta Eduyos was composed from those teachings."},
+{ti:"Final teachings of R' Eliezer and R' Yochanan ben Zakkai",s:"R' Eliezer: 'Know before Whom you stand.' R' Yochanan ben Zakkai: 'May your fear of Heaven equal your fear of man.'",d:"R' Eliezer said: 'When you daven, know before Whom you are standing.' R' Yochanan Ben Zakai blessed his students: 'May your fear of Heaven be as great as your fear of man.'"},
+{ti:'What 18 berachos of Shemoneh Esrei correspond to',s:"Three opinions: 18x Hashem's name in Psalm 29, 18x in Shema, or 18 vertebrae. A 19th blessing added against heretics.",d:"Three-way machlokes: 18 times Hashem's name in Psalm 29 ('הבו לה' בני אלים'), 18 times in Krias Shema, or 18 vertebrae. The 19th blessing (ברכת הצדוקים) was composed by Shmuel Hakatan."}
+]},
+34:{n:34,t:'Berachos',sw:'Ladder',sh:'לד',st:'The baal teshuva climbed the ladder to learn how the King davens Shemoneh Esrei fully bowed, as the servant below begged the king for his allotment.',pts:[
+{ti:'How to daven like an eved (the three parts)',s:'First 3 berachos: praise. Middle: request. Last 3: take leave with gratitude.',d:'When reciting the first three berachos, one is like a servant stating praises before his master. The middle berachos: like a servant requesting his allotment. The last three: like a servant who received his allotment and begs leave expressing gratitude.'},
+{ti:'When to bow during Shemoneh Esrei',s:'Regular Jew: start/end of Avos and Hoda\'ah. Kohen Gadol: start/end of each berachah. King: bows the entire tefillah.',d:"A regular Jew bows at the beginning and end of Avos and Hoda'ah. Kohen Gadol: at start and end of each berachah. Melech: one opinion start/end of each; another opinion he remains bowed from the first berachah until the end."},
+{ti:'Ba\'alei Teshuva vs. Tzadikim Gemurim',s:"R' Abahu: where ba'alei teshuva stand, tzadikim gemurim cannot stand. R' Yochanan: tzadikim gemurim are higher.",d:"R' Abahu holds the place where ba'alei teshuvah stand, tzadikim gemurim cannot stand, based on 'שלום שלום לרחוק ולקרוב'. R' Yochanan holds tzadikim gemurim are greater."}
+]},
+54:{n:54,t:'Berachos',sw:'Noodles',sh:'נד',st:'The caterer transporting noodles across the desert bentched gomel after delivering them to the well-guarded chassan and kallah making berachos in eight miracle places.',pts:[
+{ti:'Berachos on places where miracles occurred',s:'Obligated to make a berachah upon seeing a place where a miracle occurred for the public.',d:'All are obligated to make a berachah when seeing a place where miracles were performed for the masses, but only an individual is obligated to make a berachah on a miracle performed for him alone.'},
+{ti:'Eight places where miracles occurred',s:'Yam Suf, Jordan, Canyons of Arnon, Stones of Elgavish, Stone of Og, Moshe\'s stone by Amalek, Lot\'s wife, Wall of Yericho.',d:"Eight places one is obligated to recite a berachah: where Yam Suf was crossed, where the Jordan was crossed, Canyons of Arnon (Amorites crushed), Stones of Elgavish at Beis Choron, stone Og wanted to throw, stone Moshe sat on by Amalek, remains of Lot's wife, the wall of Yericho."},
+{ti:'Bentch Gomel — 4 who bentch, 3 who need shmirah',s:'Four must bentch gomel: sea traveler, desert traveler, illness recovery, released from prison. Three need protection: sick person, chassan, kallah.',d:'Four types of people must bentch gomel: one who travels across the sea, one who travels through a wilderness, one who recovers from illness, one who is freed from prison. Three types need protection: a sick person, a chassan, and a kallah.'}
+]},
+64:{n:64,t:'Berachos',sw:'Secret',sh:'סד',st:'The Daf Yomi learners secretly reviewed their encyclopedic knowledge of Berachos as they entered the beis hamidrash, going from strength to strength.',pts:[
+{ti:'Sinai or Oker Harim?',s:'Sinai (encyclopedic knowledge) takes precedence over Oker Harim (sharp analysis) — comprehensive knowledge solves most problems.',d:"The Rabbis in Bavel asked whether to prefer a 'Sinai' (encyclopedic knowledge) or an 'Oker Harim' (sharp analysis). Sinai takes precedence because encyclopedic knowledge enables discovering solutions to most problems."},
+{ti:'ילכו מחיל אל חיל — from strength to strength',s:"One who immediately enters the beis midrash after leaving shul merits greeting the Shechinah. Talmidei chachamim rise forever in Olam Haba.",d:"R' Levi bar Chiya: one who leaves the beis haknesses and immediately enters the beis hamidrash will merit to greet the Shechinah. Talmidei chochamim have no rest in Olam Hazeh or Olam Haba — they continue rising forever."},
+{ti:'Talmidei chachamim bring shalom to the world',s:"Torah scholars increase peace in the world — do not read 'your sons' (בניך) but 'your builders' (בוניך).",d:"R' Elazar in the name of R' Chanina: Talmidei chochomim increase the peace in the world. 'וכל בניך למודי ה' ורב שלום בניך' — do not read 'your sons' but 'your builders'. The talmidei chochomim build the world with their Torah."}
+]}
+};
+
+const dafKey=(t,n)=>`${t}::${n}`;
+const normTractate=t=>String(t||'').trim();
+const getAllDafim=()=>Object.values(D);
+const getDafsForTractate=t=>getAllDafim().filter(df=>df.t===t);
+const getTractates=()=>[...new Set([...Object.keys(CHAPS),...getAllDafim().map(df=>df.t)])].filter(Boolean).sort();
+const getDaf=(t,n)=>{
+  if(t){
+    const direct=D[dafKey(t,n)];
+    if(direct) return direct;
+  }
+  const nNum=Number(n);
+  return getAllDafim().find(df=>df.n===nNum&&(!t||df.t===t))||null;
+};
+const upsertDaf=entry=>{
+  if(!entry||!entry.t||!entry.n) return;
+  D[dafKey(entry.t,entry.n)]=entry;
+};
+const getTractateDafNumbers=t=>{
+  const fromChaps=(CHAPS[t]||[]).flatMap(ch=>ch.dafim||[]);
+  const fromData=getDafsForTractate(t).map(df=>df.n);
+  return [...new Set([...fromChaps,...fromData])].map(Number).filter(Boolean).sort((a,b)=>a-b);
+};
+
+let D={};
+Object.values(D_RAW).forEach(upsertDaf);
+
+/* ════════════════════ STORAGE ════════════════════ */
+const ls=(k,def)=>{try{const v=localStorage.getItem('z_'+k);return v===null?def:JSON.parse(v);}catch(e){return def;}};
+const lss=(k,v)=>{try{localStorage.setItem('z_'+k,JSON.stringify(v));if(!_suppressCloudSync)scheduleCloudSync();}catch(e){}};
+const getM=(t,n)=>ls('m_'+t+'_'+n,{score:5,att:0,cor:0,time:0,lastSeen:0});
+const setM=(t,n,m)=>lss('m_'+t+'_'+n,m);
+const getBK=(t,n)=>ls('bk_'+t+'_'+n,null);
+const setBK=(t,n,v)=>lss('bk_'+t+'_'+n,v);
+const getCP=(t,n)=>ls('cp_'+t+'_'+n,[]);
+const setCP=(t,n,v)=>lss('cp_'+t+'_'+n,v);
+const logA=(t,n)=>{let r=ls('recent',[]);r=r.filter(x=>!(x.t===t&&x.n===n));r.unshift({t,n,ts:Date.now()});lss('recent',r.slice(0,20));};
+
+function updateM(t,n,result,timeSec){
+  const m=getM(t,n);
+  m.att++;
+  m.lastSeen=Date.now();
+  // weighted score: correct=1, partial=0.5, wrong=0
+  // time bonus: <3s=+0.3, 3-7s=+0, >7s=-0.1
+  let pts=result==='correct'?1:result==='partial'?0.5:0;
+  let timeBonus=timeSec<3?0.3:timeSec>7?-0.1:0;
+  m.cor=Math.min(m.att,(m.cor||0)+Math.max(0,Math.min(1,pts+timeBonus)));
+  // recalculate score 1-5 (5=worst, 1=best) after 2+ attempts
+  if(m.att>=2){
+    const rate=m.cor/m.att;
+    // also factor in speed
+    if(rate>=0.92) m.score=1;
+    else if(rate>=0.75) m.score=2;
+    else if(rate>=0.55) m.score=3;
+    else if(rate>=0.35) m.score=4;
+    else m.score=5;
+  }
+  setM(t,n,m);
+}
+
+/* ════════════════════ DIFFICULTY LEVELS ════════════════════
+  L1 (score 5, <3 attempts) → locate-mc (multiple choice, find the daf)
+  L2 (score 4-5)             → locate-type (type the daf number)
+  L3 (score 3-4)             → recall-mc (which of these topics is on this daf?)
+  L4 (score 2-3)             → recall-type 1 point (type one point)
+  L5 (score 1-2)             → recall-type all 3 (type all three / AI graded)
+════════════════════════════════════════════════════════════ */
+function chooseDifficulty(daf,allowedModes){
+  const m=getM(daf.t,daf.n);
+  const score=m.score;
+  const att=m.att;
+  // determine natural difficulty for this daf
+  let natural;
+  if(att<2||score===5) natural='locate-mc';
+  else if(score===4) natural='locate-type';
+  else if(score===3) natural='recall-mc';
+  else if(score===2) natural='recall-type-1';
+  else natural='recall-type-all';
+  // filter to allowed
+  const map={'locate-mc':'locate-mc','locate-type':'locate-type','recall-mc':'recall-mc','recall-type-1':'recall-type','recall-type-all':'recall-type'};
+  const allowed=allowedModes||['locate-mc','locate-type','recall-mc','recall-type'];
+  // find closest allowed
+  const order=['locate-mc','locate-type','recall-mc','recall-type-1','recall-type-all'];
+  let idx=order.indexOf(natural);
+  while(idx<order.length){
+    const candidate=order[idx];
+    const mapped=map[candidate];
+    if(allowed.includes(mapped||candidate)) return candidate;
+    idx++;
+  }
+  return 'locate-mc';
+}
+
+const DIFF_LABELS={
+  'locate-mc':'L1 — Find daf (choices)',
+  'locate-type':'L2 — Find daf (type)',
+  'recall-mc':'L3 — Points (choices)',
+  'recall-type-1':'L4 — One point (type)',
+  'recall-type-all':'L5 — All 3 points'
+};
+const DIFF_CLASS={'locate-mc':'diff1','locate-type':'diff2','recall-mc':'diff3','recall-type-1':'diff4','recall-type-all':'diff5'};
+
+/* ════════════════════ NAV ════════════════════ */
+function goTo(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('s-'+name).classList.add('active');
+  const activeBtn=document.querySelector(`nav button[data-screen="${name}"]`);
+  if(activeBtn) activeBtn.classList.add('active');
+  if(name==='home') renderHome();
+  if(name==='browse') renderBrowse();
+  if(name==='progress') renderProgress();
+  if(name==='settings') renderSettings();
+  if(name==='quiz') renderQuizSetup();
+}
+
+/* ════════════════════ HOME ════════════════════ */
+function getStudyProgressState(){
+  const sp=ls('studyProgress',{});
+  const tractates=getTractates();
+  const fallbackTractate=tractates[0]||'Berachos';
+  let selected=ls('currentTractate',fallbackTractate);
+  if(!tractates.includes(selected)) selected=fallbackTractate;
+  if(!sp[selected]){
+    const nums=getTractateDafNumbers(selected);
+    sp[selected]={currentDaf:nums[0]||2,rhythm:'daily'};
+  }
+  return {sp,selected,tractates};
+}
+
+function renderHome(){
+  document.getElementById('greetName').textContent=ls('userName','Chavrusa');
+  const dafList=getAllDafim();
+  const {sp,selected,tractates}=getStudyProgressState();
+  let d1=0,d2=0,d3=0,d4=0,d5=0,studied=0;
+  dafList.forEach(df=>{const m=getM(df.t,df.n);if(m.att>0){studied++;[d1,d2,d3,d4,d5][[1,2,3,4,5].indexOf(m.score)]++;}});
+  const total=dafList.length;
+  document.getElementById('homeStats').innerHTML=`
+    <div class="stat-box"><span class="n">${studied}/${total}</span><span class="l">Dafim studied</span></div>
+    <div class="stat-box"><span class="n" style="color:var(--c1)">${d1}</span><span class="l">💎 Diamond</span></div>
+    <div class="stat-box"><span class="n" style="color:var(--c2)">${d2}</span><span class="l">🥇 Gold</span></div>
+    <div class="stat-box"><span class="n" style="color:var(--c5)">${d5}</span><span class="l">📖 Learning</span></div>
+  `;
+  // status line + tracker state
+  const tkTractate=document.getElementById('tkTractate');
+  const tkDaf=document.getElementById('tkDaf');
+  const tkRhythm=document.getElementById('tkRhythm');
+  if(tkTractate){
+    const currentOptions=[...tkTractate.options].map(o=>o.value).join('|');
+    const expectedOptions=tractates.join('|');
+    if(currentOptions!==expectedOptions){
+      tkTractate.innerHTML=tractates.map(t=>`<option value="${t}">${t}</option>`).join('');
+    }
+    tkTractate.value=selected;
+    if(!tkTractate.dataset.bound){
+      tkTractate.addEventListener('change',()=>{
+        lss('currentTractate',tkTractate.value);
+        renderHome();
+      });
+      tkTractate.dataset.bound='1';
+    }
+  }
+
+  const tractateDafs=getTractateDafNumbers(selected);
+  if(!sp[selected]) sp[selected]={currentDaf:tractateDafs[0]||2,rhythm:'daily'};
+  const cur=sp[selected].currentDaf||tractateDafs[0]||2;
+  const rhythm=sp[selected].rhythm||'daily';
+  if(tkDaf){
+    tkDaf.innerHTML=tractateDafs.map(n=>{
+      const df=getDaf(selected,n);
+      return `<option value="${n}">Daf ${n} (${h(n)})${df?.sw?` — ${df.sw}`:''}</option>`;
+    }).join('');
+    tkDaf.value=String(cur);
+  }
+  if(tkRhythm) tkRhythm.value=rhythm;
+  const curDf=getDaf(selected,cur);
+  document.getElementById('statusLine').textContent=`Currently: ${selected} Daf ${cur} (${h(cur)})${curDf?.sw?` — ${curDf.sw}`:''}`;
+
+  // recent
+  const recent=ls('recent',[]);
+  const rp=document.getElementById('recentPills');
+  if(!recent.length){
+    rp.innerHTML='<span style="color:var(--muted);font-size:.82rem;">No recent activity yet.</span>';
+  } else {
+    rp.innerHTML=recent.slice(0,8).map(r=>{
+      const df=getDaf(r.t,r.n);if(!df)return'';
+      const m=getM(r.t,r.n);
+      const cols=['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--c5)'];
+      return `<div class="rpill" onclick="quizSingle('${r.t}',${r.n})"><div class="m-dot" style="background:${cols[m.score-1]}"></div>${df.t} ${h(r.n)} ${df.sw}</div>`;
+    }).join('');
+  }
+
+  // tracker progress (for selected tractate)
+  const done=tractateDafs.filter(n=>n<=cur).length;
+  const pct=Math.round(done/(tractateDafs.length||1)*100);
+  document.getElementById('tkProgressWrap').style.display='block';
+  document.getElementById('tkBar').style.width=pct+'%';
+  document.getElementById('tkLabel').textContent=`${done} of ${tractateDafs.length} dafim in ${selected} (${pct}%)`;
+  renderAccountSummary();
+}
+function saveCurrent(){
+  const {sp,selected}=getStudyProgressState();
+  sp[selected]={currentDaf:parseInt(document.getElementById('tkDaf').value,10),rhythm:document.getElementById('tkRhythm').value};
+  lss('studyProgress',sp);
+  showToast('Current daf saved!');
+  renderHome();
+}
+
+/* ════════════════════ BROWSE ════════════════════ */
+function renderBrowse(){
+  const q=(document.getElementById('bSearch').value||'').toLowerCase();
+  const sort=document.getElementById('bSort').value;
+  const bHeader=document.getElementById('browseHeader');
+  if(bHeader){
+    const tCount=getTractates().length;
+    bHeader.textContent=tCount>1?`Browse — ${tCount} Tractates`:`Browse — ${getTractates()[0]||'All Tractates'}`;
+  }
+  const list=document.getElementById('browseList');list.innerHTML='';
+  let dafList=getAllDafim();
+  if(q) dafList=dafList.filter(df=>`${df.t} ${df.n} ${h(df.n)} ${df.sw} ${df.sh} ${df.pts.map(p=>p.ti+' '+p.s).join(' ')}`.toLowerCase().includes(q));
+  if(sort==='weakest') dafList.sort((a,b)=>getM(b.t,b.n).score-getM(a.t,a.n).score);
+  else if(sort==='strongest') dafList.sort((a,b)=>getM(a.t,a.n).score-getM(b.t,b.n).score);
+  else if(sort==='recent') dafList.sort((a,b)=>getM(b.t,b.n).lastSeen-getM(a.t,a.n).lastSeen);
+  else if(sort==='bookmarked') dafList=dafList.filter(df=>getBK(df.t,df.n));
+  else dafList.sort((a,b)=>a.t.localeCompare(b.t)||a.n-b.n);
+
+  if(sort==='order'){
+    getTractates().forEach(t=>{
+      const tractateList=dafList.filter(df=>df.t===t).sort((a,b)=>a.n-b.n);
+      if(!tractateList.length) return;
+      const chapters=(CHAPS[t]&&CHAPS[t].length)?CHAPS[t]:[{name:t,dafim:tractateList.map(df=>df.n)}];
+      const rendered=new Set();
+      chapters.forEach(ch=>{
+        const cds=tractateList.filter(df=>ch.dafim.includes(df.n));
+        if(!cds.length)return;
+        const chEl=document.createElement('div');chEl.className='ch-bar';
+        chEl.innerHTML=`<span>${t} — ${ch.name}</span><span>${cds.length} dafim</span>`;
+        list.appendChild(chEl);
+        cds.forEach(df=>{rendered.add(df.n);list.appendChild(buildDrow(df));});
+      });
+      const remaining=tractateList.filter(df=>!rendered.has(df.n));
+      if(remaining.length){
+        const remEl=document.createElement('div');remEl.className='ch-bar';
+        remEl.innerHTML=`<span>${t} — Additional Dafim</span><span>${remaining.length} dafim</span>`;
+        list.appendChild(remEl);
+        remaining.forEach(df=>list.appendChild(buildDrow(df)));
+      }
+    });
+  } else {
+    dafList.forEach(df=>list.appendChild(buildDrow(df)));
+  }
+  if(!list.hasChildNodes()) list.innerHTML='<div style="text-align:center;padding:2rem;color:var(--muted)">No dafim found.</div>';
+}
+
+function buildDrow(df){
+  const m=getM(df.t,df.n);
+  const bk=getBK(df.t,df.n);
+  const cp=getCP(df.t,df.n);
+  const mcls=['mc1','mc2','mc3','mc4','mc5'];
+  const mlbl=['💎 Diamond','🥇 Gold','🥈 Silver','🥉 Bronze','📖 Learning'];
+  const div=document.createElement('div');
+  div.className='drow';div.id=`dr_${df.t}_${df.n}`;
+  const mBadge=m.att>0?`<span class="mbadge ${mcls[m.score-1]}">${mlbl[m.score-1]}</span>`:'<span style="color:var(--border);font-size:.72rem;">Not studied</span>';
+  div.innerHTML=`
+    <div class="drow-hdr" onclick="toggleDrow('${df.t}',${df.n})">
+      <div class="dnb">${h(df.n)}</div>
+      <div class="drow-info">
+        <div class="drow-title">Daf ${df.n} — ${df.sw} / ${df.sh}</div>
+        <div class="drow-meta">${mBadge}<span class="spill">Siman: ${df.sw}</span>${m.att>0?`<span>${m.att} attempts</span>`:''}</div>
+      </div>
+      <div class="drow-acts" onclick="event.stopPropagation()">
+        <button class="ibtn${bk==='gold'?' gold-on':''}" title="Gold bookmark" onclick="toggleBK('${df.t}',${df.n},'gold',this)">⭐</button>
+        <button class="ibtn${bk==='silver'?' silver-on':''}" title="Silver bookmark" onclick="toggleBK('${df.t}',${df.n},'silver',this)">🥈</button>
+        <button class="ibtn" title="Quiz this daf" onclick="quizSingle('${df.t}',${df.n})">🎯</button>
+      </div>
+    </div>
+    <div class="drow-detail" id="det_${df.t}_${df.n}">${buildDetail(df,cp)}</div>
+  `;
+  return div;
+}
+
+function buildDetail(df,cp){
+  const sefariaSlug=encodeURIComponent((df.t||'Berakhot').replace(/\s+/g,'_'));
+  let html=`<div class="story-box"><strong>Siman Story</strong>${df.st}</div>`;
+  df.pts.forEach((p,i)=>{
+    html+=`<div class="pt-wrap" id="pt_${df.t}_${df.n}_${i}">
+      <div class="pt-hdr" onclick="togglePt('${df.t}',${df.n},${i})">
+        <div class="ptn">${i+1}</div>
+        <div class="pt-title">${p.ti}</div>
+        <span class="pt-arr">▶</span>
+      </div>
+      <div class="pt-body">
+        <div style="color:var(--muted);margin-bottom:.35rem;">${p.s}</div>
+        <div>${p.d}</div>
+      </div>
+    </div>`;
+  });
+  if(cp.length){
+    cp.forEach((note,i)=>{
+      html+=`<div class="note-box">✏️ <strong>Your note:</strong> ${note}<button class="del-note" onclick="delNote('${df.t}',${df.n},${i})">✕</button></div>`;
+    });
+  }
+  html+=`<div class="add-note-area">
+    <textarea id="nn_${df.t}_${df.n}" placeholder="Add your own note or 4th point…"></textarea>
+    <div style="display:flex;gap:.5rem;align-items:center;margin-top:.4rem;">
+      <button class="btn btn-ghost btn-sm" onclick="saveNote('${df.t}',${df.n})">Save Note</button>
+      <a class="sefaria-link" href="https://www.sefaria.org/${sefariaSlug}.${df.n}a?lang=en" target="_blank">📚 Sefaria</a>
+    </div>
+    <div class="img-slot" id="imgslot_${df.t}_${df.n}">${df.img?`<img src="${df.img}" alt="Siman image">`:' 📷 Siman image will appear here when images are added'}</div>
+  </div>`;
+  return html;
+}
+
+function toggleDrow(t,n){const el=document.getElementById(`dr_${t}_${n}`);el.classList.toggle('open');logA(t,n);}
+function togglePt(t,n,i){document.getElementById(`pt_${t}_${n}_${i}`).classList.toggle('open');}
+function toggleBK(t,n,type,btn){
+  const cur=getBK(t,n);const nv=cur===type?null:type;setBK(t,n,nv);
+  const df=getDaf(t,n);if(!df)return;
+  const row=document.getElementById(`dr_${t}_${n}`);
+  if(row){const nr=buildDrow(df);if(row.classList.contains('open'))nr.classList.add('open');row.replaceWith(nr);}
+  showToast(nv?`Marked as ${nv} ✓`:'Bookmark removed');
+}
+function saveNote(t,n){
+  const ta=document.getElementById(`nn_${t}_${n}`);if(!ta?.value.trim())return;
+  const cp=getCP(t,n);cp.push(ta.value.trim());setCP(t,n,cp);ta.value='';
+  const df=getDaf(t,n);
+  const det=document.getElementById(`det_${t}_${n}`);if(det&&df)det.innerHTML=buildDetail(df,cp);
+  showToast('Note saved!');
+}
+function delNote(t,n,i){
+  const cp=getCP(t,n);cp.splice(i,1);setCP(t,n,cp);
+  const df=getDaf(t,n);
+  const det=document.getElementById(`det_${t}_${n}`);if(det&&df)det.innerHTML=buildDetail(df,cp);
+  showToast('Note deleted');
+}
+
+/* ════════════════════ QUIZ ENGINE ════════════════════ */
+const QS={queue:[],cur:0,scores:{c:0,p:0,w:0},missed:[],history:[],
+  hintLevel:0,revealed:false,answered:false,startTime:0,timerInt:null,
+  autoTimer:null,allowedModes:['locate-mc','locate-type','recall-mc','recall-type'],
+  wrongAttempts:0,aiHint:null,aiHintLoading:false};
+
+function getEnabledModes(){return Array.from(document.querySelectorAll('.mpill.on')).map(p=>p.dataset.mode);}
+function toggleMpill(el){
+  el.classList.toggle('on');
+  if(!document.querySelectorAll('.mpill.on').length)el.classList.add('on');
+}
+
+function weightedPool(list){
+  // Only quiz learned dafim; if none marked, use all
+  const lp=getLearned();
+  const filtered=list.filter(df=>{
+    const tLearned=lp[df.t]||{};
+    const anyLearned=Object.keys(tLearned).length>0;
+    return !anyLearned || tLearned[df.n];
+  });
+  const pool=filtered.length?filtered:list;
+  const w=[];
+  pool.forEach(df=>{
+    const m=getM(df.t,df.n);
+    const weight=m.att===0?3:m.score; // unseen=3, score5=5x, score1=1x
+    for(let i=0;i<weight;i++)w.push(df);
+  });
+  for(let i=w.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[w[i],w[j]]=[w[j],w[i]];}
+  const seen=new Set();return w.filter(df=>{const k=df.t+'_'+df.n;if(seen.has(k))return false;seen.add(k);return true;});
+}
+
+function getSelectedQuizTractates(){
+  const sel=document.getElementById('qTractates');
+  const selected=sel?[...sel.selectedOptions].map(o=>o.value):[];
+  return selected.length?selected:getTractates();
+}
+function getQuizPoolFromSetup(){
+  const selectedTractates=getSelectedQuizTractates();
+  const from=parseInt(document.getElementById('qFrom').value,10);
+  const to=parseInt(document.getElementById('qTo').value,10);
+  const poolMode=document.getElementById('qPoolMode')?.value||'learned';
+  return getAllDafim().filter(df=>{
+    if(!selectedTractates.includes(df.t)) return false;
+    if(df.n<from||df.n>to) return false;
+    if(poolMode==='all') return true;
+    return isDafLearned(df.t,df.n);
+  });
+}
+
+function renderQuizSetup(){
+  const qf=document.getElementById('qFrom'),qt=document.getElementById('qTo'),qtr=document.getElementById('qTractates');
+  const tractates=getTractates();
+  const prevSelected=qtr?[...qtr.selectedOptions].map(o=>o.value):[];
+  const tractateSig=tractates.join('|');
+  if(qtr&&qtr.dataset.sig!==tractateSig){
+    qtr.innerHTML=tractates.map(t=>`<option value="${t}">${t}</option>`).join('');
+    [...qtr.options].forEach(o=>{o.selected=prevSelected.length?prevSelected.includes(o.value):true;});
+    qtr.dataset.sig=tractateSig;
+  }
+  const selectedTractates=getSelectedQuizTractates();
+  const dafNums=[...new Set(getAllDafim().filter(df=>selectedTractates.includes(df.t)).map(df=>df.n))].sort((a,b)=>a-b);
+  const sig=selectedTractates.join('|')+'::'+dafNums.join('|');
+  if(qf.dataset.sig!==sig){
+    const oldFrom=qf.value,oldTo=qt.value;
+    qf.innerHTML='';qt.innerHTML='';
+    dafNums.forEach(n=>{
+      qf.appendChild(new Option(`Daf ${n} (${h(n)})`,n));
+      qt.appendChild(new Option(`Daf ${n} (${h(n)})`,n));
+    });
+    qf.dataset.sig=sig;
+    qt.dataset.sig=sig;
+    qf.value=dafNums.includes(Number(oldFrom))?oldFrom:String(dafNums[0]||2);
+    qt.value=dafNums.includes(Number(oldTo))?oldTo:String(dafNums[dafNums.length-1]||2);
+  }
+  document.getElementById('qSetup').style.display='block';
+  document.getElementById('qActive').style.display='none';
+  document.getElementById('qResults').style.display='none';
+}
+
+function beginQuiz(){
+  const count=parseInt(document.getElementById('qCount').value);
+  const focus=document.getElementById('qFocus').value;
+  let pool=getQuizPoolFromSetup();
+  if(!pool.length && (document.getElementById('qPoolMode')?.value||'learned')==='learned'){
+    showToast('No learned pages in that range yet. Switching to all pages.');
+    document.getElementById('qPoolMode').value='all';
+    pool=getQuizPoolFromSetup();
+  }
+  if(!pool.length){showToast('No dafim found for that quiz setup');return;}
+  if(focus==='weak') pool=pool.filter(df=>getM(df.t,df.n).score>=4||getM(df.t,df.n).att===0);
+  if(!pool.length){showToast('No weak dafim in that range');return;}
+  const sorted=focus==='random'?pool.sort(()=>Math.random()-.5):weightedPool(pool);
+  launchQueue(sorted.slice(0,Math.min(count,sorted.length)));
+}
+function launchSmartQuiz(){
+  goTo('quiz');
+  const sorted=weightedPool(getAllDafim());
+  launchQueue(sorted.slice(0,10));
+}
+function launchWeakQuiz(){
+  goTo('quiz');
+  const weak=getAllDafim().filter(df=>{const m=getM(df.t,df.n);return m.score>=4||m.att===0;});
+  if(!weak.length){showToast('No weak dafim yet — keep studying!');return;}
+  launchQueue(weightedPool(weak).slice(0,10));
+}
+function launchRandomQuiz(){
+  goTo('quiz');
+  const all=getAllDafim().sort(()=>Math.random()-.5);
+  launchQueue(all.slice(0,10));
+}
+function quizSingle(t,n){
+  goTo('quiz');
+  const df=getDaf(t,n);if(!df)return;
+  launchQueue([df,df]);
+}
+function launchQueue(list){
+  const modes=getEnabledModes();
+  QS.queue=list.map(df=>({df,diff:chooseDifficulty(df,modes)}));
+  QS.cur=0;QS.scores={c:0,p:0,w:0};QS.missed=[];QS.history=[];
+  clearTimeout(QS.autoTimer);QS.autoTimer=null;
+  document.getElementById('qSetup').style.display='none';
+  document.getElementById('qActive').style.display='block';
+  document.getElementById('qResults').style.display='none';
+  loadQ();
+}
+
+function getChapterNameForDaf(t,n){
+  const chaps=CHAPS[t]||[];
+  const ch=chaps.find(c=>(c.dafim||[]).includes(n));
+  return ch?.name||'Unknown chapter';
+}
+
+function buildHintTexts(df,diff){
+  const queueDafs=QS.queue.map(q=>q.df);
+  const uniqueTractates=[...new Set(queueDafs.map(x=>x.t))];
+  const singleTractate=uniqueTractates.length===1;
+  const sessionNums=queueDafs.filter(x=>x.t===df.t).map(x=>x.n).sort((a,b)=>a-b);
+  const minN=sessionNums[0],maxN=sessionNums[sessionNums.length-1];
+  const chapter=getChapterNameForDaf(df.t,df.n);
+  const topic=(QS.queue[QS.cur].rp?.ti||'').trim();
+  const firstWords=topic.split(/\s+/).slice(0,2).join(' ');
+
+  if(singleTractate){
+    return [
+      `Chapter: <strong>${chapter}</strong>`,
+      sessionNums.length>1
+        ?`This quiz session range: <strong>Daf ${minN}–${maxN}</strong>`
+        :`Daf neighborhood: <strong>${Math.max(2,df.n-3)}–${df.n+3}</strong>`,
+      diff.startsWith('locate')
+        ?`Topic starter: <strong>${firstWords||df.sw}</strong>`
+        :`Siman: <strong>${df.sw} / ${df.sh}</strong>`,
+      `Story: <em>${df.st.substring(0,80)}…</em>`
+    ];
+  }
+
+  return [
+    `Tractate: <strong>${df.t}</strong>`,
+    `Chapter: <strong>${chapter}</strong>`,
+    `Siman: <strong>${df.sw} / ${df.sh}</strong>`,
+    `Story: <em>${df.st.substring(0,80)}…</em>`
+  ];
+}
+
+function loadQ(){
+  if(QS.cur>=QS.queue.length){showResults();return;}
+  clearInterval(QS.timerInt);
+  clearTimeout(QS.autoTimer);QS.autoTimer=null;
+  QS.startTime=Date.now();
+
+  const q=QS.queue[QS.cur];
+  const {df,diff}=q;
+  const total=QS.queue.length;
+
+  // progress
+  document.getElementById('qPFill').style.width=(QS.cur/total*100)+'%';
+  document.getElementById('qPText').textContent=`${QS.cur+1}/${total}`;
+  document.getElementById('qPrevBtn').disabled=QS.cur===0;
+  document.getElementById('qNextBtn').disabled=true; // only enable after answering
+
+  // diff chip
+  const dc=document.getElementById('diffChip');
+  dc.className='diff-chip '+DIFF_CLASS[diff];
+  dc.textContent=DIFF_LABELS[diff];
+
+  // reset elements
+  ['hintStrip','aiBox','ansPanel','autoNext'].forEach(id=>document.getElementById(id).classList.remove('show'));
+  document.getElementById('hintStrip').style.display='';
+  document.getElementById('hintStrip').classList.remove('show');
+  document.getElementById('aiBox').classList.remove('show');
+  document.getElementById('ansPanel').classList.remove('show');
+  document.getElementById('autoNext').style.display='none';
+  document.getElementById('tryAgainStrip').classList.remove('show');
+  document.getElementById('qCard').classList.remove('wrong-pulse','correct-flash');
+  QS.wrongAttempts=0;
+  QS.hintLevel=0;QS.revealed=false;QS.answered=false;QS.aiHint=null;QS.aiHintLoading=false;
+  document.getElementById('mcWrap').style.display='none';
+  document.getElementById('tinputWrap').style.display='none';
+  document.getElementById('locateInputWrap').style.display='none';
+  document.getElementById('qTopicBox').style.display='none';
+  document.getElementById('submitBtn').style.display='';
+  document.getElementById('hintBtn').style.display='';
+  document.getElementById('timerBar').style.width='100%';
+  document.getElementById('timerBar').style.background='var(--green)';
+
+  // pick a random point for topic-based questions
+  const rp=df.pts[Math.floor(Math.random()*df.pts.length)];
+  QS.queue[QS.cur].rp=rp;
+
+  // build question
+  if(diff==='locate-mc'||diff==='locate-type'){
+    document.getElementById('qText').textContent='Which daf covers this topic?';
+    document.getElementById('qTopicBox').style.display='block';
+    document.getElementById('qTopicText').textContent=rp.ti+' — '+rp.s;
+  }
+  if(diff==='recall-mc'){
+    document.getElementById('qText').textContent=`Which of these topics appears on ${df.t} Daf ${df.n} (${h(df.n)}) — Siman: ${df.sw}?`;
+  }
+  if(diff==='recall-type-1'){
+    document.getElementById('qText').textContent=`Name ONE main topic from ${df.t} Daf ${df.n} (${h(df.n)}) — Siman: ${df.sw}`;
+  }
+  if(diff==='recall-type-all'){
+    document.getElementById('qText').textContent=`What are the 3 main topics covered on ${df.t} Daf ${df.n} (${h(df.n)}) — Siman: ${df.sw}?`;
+  }
+
+  // input type
+  if(diff==='locate-mc'){
+    buildLocateMC(df);
+    document.getElementById('submitBtn').style.display='none';
+  } else if(diff==='locate-type'){
+    document.getElementById('locateInputWrap').style.display='block';
+    document.getElementById('locateInput').value='';
+    document.getElementById('locateInput').className='daf-inp';
+    setTimeout(()=>document.getElementById('locateInput').focus(),100);
+  } else if(diff==='recall-mc'){
+    buildRecallMC(df);
+    document.getElementById('submitBtn').style.display='none';
+  } else {
+    document.getElementById('tinputWrap').style.display='block';
+    document.getElementById('tinputLabel').textContent=diff==='recall-type-1'?'Write one topic:':'Write all three topics:';
+    document.getElementById('tinput').value='';
+    document.getElementById('tinput').rows=diff==='recall-type-all'?5:2;
+    setTimeout(()=>document.getElementById('tinput').focus(),100);
+  }
+
+  // build answer panel content (hidden)
+  document.getElementById('ansDaf').textContent=`${df.n} (${h(df.n)}) — ${df.sw}`;
+  document.getElementById('ansContent').innerHTML=df.pts.map((p,i)=>`
+    <div class="arow">
+      <div class="anum">${i+1}</div>
+      <div class="atext"><strong>${p.ti}</strong><br>${p.s}
+        <br><button class="expand-btn" onclick="toggleDetail(this)">▼ Full detail</button>
+        <div class="adetail">${p.d}</div>
+      </div>
+    </div>`).join('');
+  document.getElementById('ansStory').innerHTML=`<strong>Siman Story</strong>${df.st}`;
+  document.getElementById('ansStory').style.display=(diff==='locate-mc'||diff==='locate-type')?'block':'none';
+
+  // hint text prep
+  QS.hintTexts=buildHintTexts(df,diff);
+
+  // timer animation
+  startTimer();
+}
+
+function startTimer(){
+  let elapsed=0;
+  const bar=document.getElementById('timerBar');
+  QS.timerInt=setInterval(()=>{
+    if(QS.answered){clearInterval(QS.timerInt);return;}
+    elapsed+=0.1;
+    const pct=Math.max(0,100-elapsed/15*100); // depletes over 15s
+    bar.style.width=pct+'%';
+    if(elapsed>7) bar.style.background='var(--c5)';
+    else if(elapsed>3) bar.style.background='var(--c4)';
+  },100);
+}
+
+function buildLocateMC(df){
+  const others=getAllDafim().filter(x=>x.t===df.t&&x.n!==df.n);
+  const wrongs=[];
+  while(wrongs.length<3&&others.length>0) wrongs.push(others.splice(Math.floor(Math.random()*others.length),1)[0]);
+  const opts=[df,...wrongs].sort(()=>Math.random()-.5);
+  const mc=document.getElementById('mcWrap');mc.style.display='grid';
+  mc.innerHTML=opts.map(o=>`
+    <div class="mc-opt" onclick="checkLocateMC(${o.n},${df.n},this)">
+      <span class="mc-heb">${h(o.n)}</span>
+      <span class="mc-sub">${o.sw}</span>
+    </div>`).join('');
+}
+
+function buildRecallMC(df){
+  // pick 1 correct point + 3 decoys from other dafim
+  const rp=df.pts[Math.floor(Math.random()*df.pts.length)];
+  QS.queue[QS.cur].rp=rp;
+  const others=getAllDafim().filter(x=>!(x.t===df.t&&x.n===df.n));
+  const decoys=[];
+  while(decoys.length<3&&others.length>0){
+    const o=others.splice(Math.floor(Math.random()*others.length),1)[0];
+    const dp=o.pts[Math.floor(Math.random()*o.pts.length)];
+    if(!decoys.find(d=>d.ti===dp.ti)) decoys.push(dp);
+  }
+  const opts=[rp,...decoys].sort(()=>Math.random()-.5);
+  const mc=document.getElementById('mcWrap');mc.style.display='grid';
+  mc.innerHTML=opts.map(p=>`
+    <div class="mc-opt" data-correct="${p.ti===rp.ti}" onclick="checkRecallMC(this,'${rp.ti}')">
+      <span class="mc-heb" style="font-size:.85rem;font-family:'DM Sans',sans-serif;">${p.ti}</span>
+    </div>`).join('');
+}
+
+function handleInputKey(e){if((e.metaKey||e.ctrlKey)&&e.key==='Enter') submitAnswer();}
+
+function submitAnswer(){
+  const q=QS.queue[QS.cur];
+  const diff=q.diff;
+  if(diff==='locate-type') submitLocate();
+  else if(diff==='recall-type-1'||diff==='recall-type-all') submitRecall();
+}
+
+function checkLocateMC(chosen,correct,el){
+  if(QS.answered)return;
+  const elapsed=(Date.now()-QS.startTime)/1000;
+  if(chosen===correct){
+    el.classList.add('correct');
+    document.querySelectorAll('.mc-opt').forEach(o=>o.classList.add('locked'));
+    registerResult(QS.wrongAttempts===0?'correct':'partial',elapsed);
+    showCorrectFlash();
+    if(QS.wrongAttempts===0) autoAdvance(); else revealAnswer(false);
+  } else {
+    el.classList.add('wrong');
+    QS.wrongAttempts=(QS.wrongAttempts||0)+1;
+    showWrongPulse();
+    document.getElementById('taCount').textContent=`Attempt ${QS.wrongAttempts}`;
+    document.getElementById('tryAgainStrip').classList.add('show');
+    // clear the wrong highlight after a beat
+    setTimeout(()=>{el.classList.remove('wrong');el.classList.add('locked-wrong');},700);
+    if(QS.wrongAttempts>=2) showHint();
+  }
+}
+
+function checkRecallMC(el,correctTitle){
+  if(QS.answered)return;
+  const elapsed=(Date.now()-QS.startTime)/1000;
+  const isCorrect=el.dataset.correct==='true';
+  if(isCorrect){
+    el.classList.add('correct');
+    document.querySelectorAll('.mc-opt').forEach(o=>o.classList.add('locked'));
+    registerResult(QS.wrongAttempts===0?'correct':'partial',elapsed);
+    showCorrectFlash();
+    if(QS.wrongAttempts===0) autoAdvance(); else revealAnswer(false);
+  } else {
+    el.classList.add('wrong');
+    QS.wrongAttempts=(QS.wrongAttempts||0)+1;
+    showWrongPulse();
+    document.getElementById('taCount').textContent=`Attempt ${QS.wrongAttempts}`;
+    document.getElementById('tryAgainStrip').classList.add('show');
+    setTimeout(()=>{el.classList.remove('wrong');el.classList.add('locked-wrong');},700);
+    if(QS.wrongAttempts>=2) showHint();
+  }
+}
+
+function submitLocate(){
+  const val=document.getElementById('locateInput').value.trim();
+  if(!val)return;
+  const df=QS.queue[QS.cur].df;
+  const correct=val===String(df.n)||val===h(df.n);
+  const elapsed=(Date.now()-QS.startTime)/1000;
+  const inp=document.getElementById('locateInput');
+  if(correct){
+    inp.classList.remove('wrong');inp.classList.add('correct');
+    if(!QS.answered){
+      registerResult(QS.wrongAttempts===0?'correct':'partial',elapsed);
+      showCorrectFlash();
+      if(QS.wrongAttempts===0) autoAdvance(); else revealAnswer(false);
+    }
+  } else {
+    if(QS.answered)return;
+    inp.classList.add('wrong');
+    QS.wrongAttempts=(QS.wrongAttempts||0)+1;
+    showWrongPulse();
+    document.getElementById('taCount').textContent=`Attempt ${QS.wrongAttempts}`;
+    document.getElementById('tryAgainStrip').classList.add('show');
+    setTimeout(()=>{inp.classList.remove('wrong');inp.value='';inp.focus();},600);
+    if(QS.wrongAttempts>=2) showHint();
+  }
+}
+
+function retryInput(){
+  // re-focus the input so user can try again
+  const li=document.getElementById('locateInput');
+  if(li.style.display!=='none'){li.value='';li.focus();}
+  document.getElementById('tryAgainStrip').classList.remove('show');
+}
+
+function showWrongPulse(){
+  const c=document.getElementById('qCard');
+  c.classList.remove('correct-flash','wrong-pulse');
+  void c.offsetWidth; // reflow
+  c.classList.add('wrong-pulse');
+}
+function showCorrectFlash(){
+  const c=document.getElementById('qCard');
+  c.classList.remove('wrong-pulse','correct-flash');
+  void c.offsetWidth;
+  c.classList.add('correct-flash');
+}
+
+async function submitRecall(){
+  if(QS.answered)return;
+  const val=document.getElementById('tinput').value.trim();
+  if(!val){showToast('Write something first!');return;}
+  const elapsed=(Date.now()-QS.startTime)/1000;
+  const df=QS.queue[QS.cur].df;
+  const {key,type:keyType}=getAIKey('grading');
+
+  // quick local check: does the answer contain any point keywords?
+  const ansLower=val.toLowerCase();
+  const hits=df.pts.filter(p=>ansLower.includes(p.ti.split(' ').slice(0,2).join(' ').toLowerCase())||ansLower.split(' ').some(w=>p.s.toLowerCase().includes(w)&&w.length>4));
+  const isDiff1=QS.queue[QS.cur].diff==='recall-type-1';
+
+  if(!key){
+    // no AI: auto-grade by keyword match
+    const result=isDiff1?(hits.length>=1?'correct':'wrong'):(hits.length>=2?'correct':hits.length===1?'partial':'wrong');
+    registerResult(result,elapsed);
+    if(result==='correct'&&QS.wrongAttempts===0) autoAdvance();
+    else revealAnswer(result!=='correct');
+    return;
+  }
+
+  // call AI
+  document.getElementById('aiBox').classList.add('show');
+  document.getElementById('aiText').innerHTML='<div class="dots"><span>●</span><span>●</span><span>●</span></div>';
+  document.getElementById('submitBtn').style.display='none';
+  registerResult('pending',elapsed); // will update after AI response
+
+  const correctAnswer=df.pts.map((p,i)=>`${i+1}. ${p.ti}: ${p.s}`).join('\n');
+  const prompt=isDiff1
+    ?`The student needs to name ONE of these 3 topics from Daf ${df.n}:\n${correctAnswer}\n\nStudent wrote: "${val}"\n\nIn 1-2 sentences: Did they get it? If partial or wrong, ask one probing question to help them recall. End with: GRADE:correct, GRADE:partial, or GRADE:wrong`
+    :`The student needs to name all 3 topics from Daf ${df.n}:\n${correctAnswer}\n\nStudent wrote: "${val}"\n\nIn 2-3 sentences: what they got right, what's missing, ask a probing question if needed. End with: GRADE:correct, GRADE:partial, or GRADE:wrong`;
+
+  try{
+    let aiText='';
+    if(keyType==='openai'){
+      const r=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+        body:JSON.stringify({model:'gpt-4o-mini',messages:[{role:'user',content:prompt}]})});
+      if(!r.ok) throw new Error('OpenAI error: '+(await r.json().catch(()=>({}))).error?.message||r.statusText);
+      const d=await r.json();aiText=d.choices?.[0]?.message?.content||'';
+    } else {
+      const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+        headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','x-api-key':key,'anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:400,messages:[{role:'user',content:prompt}]})});
+      if(!r.ok) throw new Error('Anthropic error: '+(await r.json().catch(()=>({}))).error?.message||r.statusText);
+      const d=await r.json();aiText=d.content?.[0]?.text||'';
+    }
+    const gradeMatch=aiText.match(/GRADE:(correct|partial|wrong)/i);
+    const grade=gradeMatch?gradeMatch[1].toLowerCase():'partial';
+    const displayText=aiText.replace(/GRADE:(correct|partial|wrong)/gi,'').trim();
+    document.getElementById('aiText').innerHTML=displayText.replace(/\n/g,'<br>');
+    registerResult(grade,elapsed);
+    if(grade==='correct'){showCorrectFlash();if(QS.wrongAttempts===0) autoAdvance();else revealAnswer(false);}
+    else{showWrongPulse();revealAnswer(true);}
+  } catch(e){
+    document.getElementById('aiText').innerHTML='<em style="color:var(--muted);">AI unavailable — answer revealed for self-review.</em>';
+    registerResult('partial',elapsed);
+    revealAnswer(true);
+  }
+}
+
+function registerResult(result,timeSec){
+  if(result==='pending'||QS.answered)return;
+  QS.answered=true;
+  clearInterval(QS.timerInt);
+  document.getElementById('qNextBtn').disabled=false;
+  document.getElementById('tryAgainStrip').classList.remove('show');
+  // factor in wrong attempts: 1+ wrong = at best 'partial' unless already set
+  const finalResult=(QS.wrongAttempts>0&&result==='correct')?'partial':result;
+  if(finalResult==='correct') QS.scores.c++;
+  else if(finalResult==='partial') QS.scores.p++;
+  else{QS.scores.w++;QS.missed.push(QS.queue[QS.cur].df);}
+  QS.history[QS.cur]={result:finalResult,timeSec,wrongAttempts:QS.wrongAttempts||0};
+  updateM(QS.queue[QS.cur].df.t,QS.queue[QS.cur].df.n,finalResult,timeSec);
+  logA(QS.queue[QS.cur].df.t,QS.queue[QS.cur].df.n);
+}
+
+function autoAdvance(){
+  showCorrectFlash();
+  document.getElementById('autoNext').style.display='flex';
+  clearTimeout(QS.autoTimer);
+  QS.autoTimer=setTimeout(()=>{QS.cur++;loadQ();},900);
+}
+
+function revealAnswer(showFull=true){
+  if(showFull){
+    document.getElementById('ansPanel').classList.add('show');
+    document.getElementById('ansStory').style.display='block';
+  }
+  document.getElementById('submitBtn').style.display='none';
+  document.getElementById('autoNext').style.display='none';
+}
+
+function showHint(){
+  if(QS.revealed)return;
+  const hs=document.getElementById('hintStrip');
+  hs.style.display='';
+  hs.classList.add('show');
+  document.getElementById('hintText').innerHTML=QS.hintTexts[Math.min(QS.hintLevel,QS.hintTexts.length-1)];
+  QS.hintLevel=Math.min(QS.hintLevel+1,QS.hintTexts.length);
+  generateSmartHint();
+}
+
+function escapeHtml(text){
+  return String(text||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+async function generateSmartHint(){
+  const {key,type}=getAIKey('grading');
+  if(!key||type!=='openai'||QS.aiHint||QS.aiHintLoading||!QS.queue[QS.cur]) return;
+  QS.aiHintLoading=true;
+  const q=QS.queue[QS.cur];
+  const df=q.df;
+  const point=q.rp||df.pts[0];
+  const prompt=`You are helping a Talmud student using Zichru memory prompts.
+Give exactly one concise hint, under 22 words.
+Do not reveal the daf number.
+Do not reveal the complete answer.
+Use the siman/story/topic to nudge recall.
+
+Question type: ${q.diff}
+Tractate: ${df.t}
+Daf: ${df.n}
+Siman: ${df.sw} / ${df.sh}
+Story: ${df.st}
+Target topic: ${point.ti} - ${point.s}`;
+  try{
+    const r=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body:JSON.stringify({model:'gpt-4o-mini',messages:[{role:'user',content:prompt}],temperature:.4,max_tokens:70})});
+    if(!r.ok) throw new Error('OpenAI hint failed');
+    const d=await r.json();
+    QS.aiHint=(d.choices?.[0]?.message?.content||'').trim();
+    const hs=document.getElementById('hintStrip');
+    if(hs.classList.contains('show')&&QS.aiHint){
+      document.getElementById('hintText').innerHTML+=`<br><strong>Smart clue:</strong> ${escapeHtml(QS.aiHint)}`;
+    }
+  } catch(e){
+    QS.aiHint='';
+  } finally {
+    QS.aiHintLoading=false;
+  }
+}
+
+function toggleDetail(btn){
+  const det=btn.nextElementSibling;
+  det.classList.toggle('show');
+  btn.textContent=det.classList.contains('show')?'▲ Hide':'▼ Full detail';
+}
+
+function skipQ(){
+  if(!QS.answered){
+    QS.wrongAttempts=(QS.wrongAttempts||0)+1;
+    registerResult('wrong',(Date.now()-QS.startTime)/1000);
+    revealAnswer(true);
+    setTimeout(()=>{QS.cur++;loadQ();},1200);
+  } else {
+    QS.cur++;loadQ();
+  }
+}
+
+function navQ(dir){
+  const newIdx=QS.cur+dir;
+  if(newIdx<0||newIdx>=QS.queue.length)return;
+  if(!QS.answered&&dir===1){skipQ();return;}
+  QS.cur=newIdx;
+  // reload — re-reveal history if going back
+  loadQ();
+  if(dir===-1&&QS.history[QS.cur]){
+    // show answer for already-answered question
+    revealAnswer(true);
+    QS.answered=true;
+    document.getElementById('qNextBtn').disabled=false;
+  }
+}
+
+function showResults(){
+  document.getElementById('qActive').style.display='none';
+  document.getElementById('qResults').style.display='block';
+  const s=QS.scores;const tot=QS.queue.length;
+  const pct=Math.round((s.c+s.p*.5)/tot*100);
+  document.getElementById('resScore').innerHTML=`${pct}<span style="font-size:1.4rem;color:var(--muted);">%</span>`;
+  document.getElementById('resC').textContent=`✓ ${s.c} correct`;
+  document.getElementById('resP').textContent=`~ ${s.p} partial`;
+  document.getElementById('resW').textContent=`✗ ${s.w} missed`;
+  const ml=document.getElementById('missedList');
+  const uniq=[...new Map(QS.missed.map(df=>[dafKey(df.t,df.n),df])).values()];
+  ml.innerHTML=uniq.length?'<div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:.9rem 0 .4rem;">Review these dafim</div>'+
+    uniq.map(df=>`<div class="mrow"><div class="mdnb">${h(df.n)}</div><div><strong>${df.t} Daf ${df.n} — ${df.sw}</strong><br><span style="color:var(--muted);font-size:.78rem;">${df.pts.map(p=>p.ti).join(' · ')}</span></div></div>`).join(''):'' ;
+}
+
+function retryMissed(){
+  const uniq=[...new Map(QS.missed.map(df=>[dafKey(df.t,df.n),df])).values()];
+  if(!uniq.length){beginQuiz();return;}
+  launchQueue(uniq);
+}
+
+/* ════════════════════ PROGRESS ════════════════════ */
+function renderProgress(){
+  const el=document.getElementById('progressContent');el.innerHTML='';
+  const mlbls=['💎 Diamond','🥇 Gold','🥈 Silver','🥉 Bronze','📖 Learning'];
+  const cols=['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--c5)'];
+  const mcls=['m1','m2','m3','m4','m5'];
+  getTractates().forEach(t=>{
+    const dafList=getDafsForTractate(t).sort((a,b)=>a.n-b.n);
+    if(!dafList.length) return;
+    const dist=[0,0,0,0,0];let studied=0;
+    dafList.forEach(df=>{const m=getM(df.t,df.n);if(m.att>0){studied++;dist[m.score-1]++;}});
+    const total=dafList.length;
+    const pct=Math.round(studied/(total||1)*100);
+
+    const card=document.createElement('div');card.className='tp-card';
+    card.innerHTML=`<div class="tp-hdr"><div class="tp-name">${t}</div><span style="font-size:.8rem;color:var(--muted);">${studied}/${total} (${pct}%)</span></div>
+      <div class="mdist">${dist.map((c,i)=>`<div class="mseg" style="width:${total>0?c/total*100:0}%;background:${cols[i]};"></div>`).join('')}<div class="mseg" style="width:${total>0?(total-studied)/total*100:100}%;background:var(--border);"></div></div>
+      <div style="display:flex;gap:.6rem;font-size:.76rem;flex-wrap:wrap;margin:.4rem 0 .6rem;">${dist.map((c,i)=>`<span style="color:${cols[i]}">${mlbls[i]}: ${c}</span>`).join('')}</div>
+      <div class="dmini-grid" id="dpgrid_${t}"></div>`;
+    el.appendChild(card);
+
+    const grid=card.querySelector(`#dpgrid_${t}`);
+    dafList.forEach(df=>{
+      const m=getM(df.t,df.n);const bk=getBK(df.t,df.n);
+      const cls=m.att>0?mcls[m.score-1]:'un';
+      const mini=document.createElement('div');mini.className=`dmini ${cls}`;
+      mini.title=`${df.t} Daf ${df.n} — ${df.sw}${m.att>0?' | '+mlbls[m.score-1]+', '+m.att+' attempts':''}`;
+      mini.textContent=h(df.n);
+      mini.onclick=()=>{goTo('browse');setTimeout(()=>{const r=document.getElementById(`dr_${df.t}_${df.n}`);if(r){r.classList.add('open');r.scrollIntoView({behavior:'smooth',block:'center'});}},300);};
+      if(bk){const dot=document.createElement('div');dot.className='bkdot';dot.style.background=bk==='gold'?'#FFD700':'#A0A0A0';mini.appendChild(dot);}
+      grid.appendChild(mini);
+    });
+
+    const chapters=(CHAPS[t]||[]);
+    if(!chapters.length) return;
+    const chapDiv=document.createElement('div');chapDiv.style.marginTop='.8rem';
+    chapters.forEach(ch=>{
+      const chDfs=dafList.filter(df=>ch.dafim.includes(df.n));
+      const chStudied=chDfs.filter(df=>getM(df.t,df.n).att>0).length;
+      const chDist=[0,0,0,0,0];chDfs.forEach(df=>{const m=getM(df.t,df.n);if(m.att>0)chDist[m.score-1]++;});
+      chapDiv.innerHTML+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:.35rem 0;border-bottom:1px solid var(--border);">
+        <span style="font-size:.78rem;color:var(--navy);font-weight:500;">${ch.name}</span>
+        <span style="font-size:.76rem;color:var(--muted);">${chStudied}/${chDfs.length} · ${chDist.map((c,i)=>c?`<span style="color:${cols[i]}">${c}</span>`:'').filter(Boolean).join(' ')}</span>
+      </div>`;
+    });
+    card.appendChild(chapDiv);
+  });
+}
+
+/* ════════════════════ PDF IMPORT ════════════════════ */
+/* ════════════════════ LIBRARY ════════════════════ */
+// learnedPages: { "Berachos": { 2:true, 3:true, ... } }
+const getLearned=()=>ls('learnedPages',{});
+const setLearned=v=>lss('learnedPages',v);
+const isDafLearned=(t,n)=>{const lp=getLearned();return !!(lp[t]&&lp[t][n]);};
+// Only quiz dafim marked as learned (or all if none marked)
+function getLearnedDafList(t){
+  const lp=getLearned();
+  const allDafs=getDafsForTractate(t);
+  const learnedNums=Object.keys(lp[t]||{}).map(Number).filter(n=>lp[t][n]);
+  if(!learnedNums.length) return allDafs; // fallback: all dafim
+  return allDafs.filter(df=>learnedNums.includes(df.n));
+}
+
+function renderLearnedPages(){
+  const el=document.getElementById('libLearnedContent');el.innerHTML='';
+  const tractates=Object.keys(CHAPS);
+  tractates.forEach(t=>{
+    const lp=getLearned();const tLearned=lp[t]||{};
+    const allNums=[...new Set(CHAPS[t].flatMap(ch=>ch.dafim))].sort((a,b)=>a-b);
+    const learnedCount=allNums.filter(n=>tLearned[n]).length;
+    const div=document.createElement('div');div.className='lib-tractate';
+    div.innerHTML=`
+      <div class="lib-tract-hdr">
+        <div class="lib-tract-name">${t}</div>
+        <div class="lib-tract-meta">${learnedCount}/${allNums.length} dafim marked learned</div>
+      </div>
+      <div class="range-quick">
+        <button class="btn btn-ghost btn-sm" onclick="markRange('${t}','all')">Mark all</button>
+        <button class="btn btn-ghost btn-sm" onclick="markRange('${t}','none')">Clear all</button>
+        <button class="btn btn-ghost btn-sm" onclick="showRangePicker('${t}')">Mark range…</button>
+      </div>
+      <div id="rpicker_${t}" style="display:none;background:var(--parchment);border-radius:8px;padding:.6rem;margin-bottom:.5rem;">
+        <span style="font-size:.78rem;color:var(--muted);">From daf:</span>
+        <select id="rfrom_${t}">${allNums.map(n=>`<option value="${n}">${n} (${h(n)})</option>`).join('')}</select>
+        <span style="font-size:.78rem;color:var(--muted);">to:</span>
+        <select id="rto_${t}">${allNums.map(n=>`<option value="${n}">${n} (${h(n)})</option>`).join('')}</select>
+        <button class="btn btn-navy btn-sm" onclick="applyRange('${t}')">Apply</button>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('rpicker_${t}').style.display='none'">✕</button>
+      </div>
+      <div class="daf-toggle-grid" id="dtg_${t}"></div>
+    `;
+    el.appendChild(div);
+    const grid=div.querySelector(`#dtg_${t}`);
+    allNums.forEach(n=>{
+      const btn=document.createElement('div');
+      const learned=!!tLearned[n];
+      const m=getM(t,n);
+      btn.className='dtog'+(learned?' learned':'')+(learned&&m.score===1?' mastered':'');
+      btn.textContent=h(n);
+      const df=getDaf(t,n);
+      btn.title=`Daf ${n} (${h(n)})${df?' — '+df.sw:''}`;
+      btn.onclick=()=>toggleLearnedDaf(t,n,btn);
+      // range select: hold/drag
+      btn.addEventListener('mousedown',()=>{_rangeStart=n;});
+      btn.addEventListener('mouseover',(e)=>{if(e.buttons===1&&_rangeStart!==null) rangeHover(t,n,allNums);});
+      grid.appendChild(btn);
+    });
+  });
+}
+
+function toggleLearnedDaf(t,n,btn){
+  const lp=getLearned();
+  if(!lp[t]) lp[t]={};
+  lp[t][n]=!lp[t][n];
+  if(!lp[t][n]) delete lp[t][n];
+  setLearned(lp);
+  const m=getM(t,n);
+  btn.className='dtog'+(lp[t][n]?' learned':'')+(lp[t][n]&&m.score===1?' mastered':'');
+  updateLearnedCount(t);
+  renderAccountSummary();
+  showToast(lp[t]?.[n]?`Daf ${n} marked learned ✓`:`Daf ${n} unmarked`);
+}
+
+function rangeHover(t,endN,allNums){
+  if(_rangeStart===null)return;
+  const from=Math.min(_rangeStart,endN),to=Math.max(_rangeStart,endN);
+  const lp=getLearned();if(!lp[t])lp[t]={};
+  allNums.filter(n=>n>=from&&n<=to).forEach(n=>{lp[t][n]=true;});
+  setLearned(lp);
+  renderLearnedPages();
+  _rangeStart=null;
+}
+
+function markRange(t,type){
+  const lp=getLearned();if(!lp[t])lp[t]={};
+  const allNums=[...new Set(CHAPS[t].flatMap(ch=>ch.dafim))];
+  if(type==='all') allNums.forEach(n=>{lp[t][n]=true;});
+  else if(type==='none') allNums.forEach(n=>{delete lp[t][n];});
+  setLearned(lp);
+  renderLearnedPages();
+  showToast(type==='all'?`All ${t} dafim marked learned`:`${t} cleared`);
+}
+
+function showRangePicker(t){
+  const el=document.getElementById(`rpicker_${t}`);
+  el.style.display=el.style.display==='none'?'flex':'none';
+  el.style.gap='.4rem';el.style.alignItems='center';el.style.flexWrap='wrap';
+}
+
+function applyRange(t){
+  const from=parseInt(document.getElementById(`rfrom_${t}`).value);
+  const to=parseInt(document.getElementById(`rto_${t}`).value);
+  const lp=getLearned();if(!lp[t])lp[t]={};
+  const allNums=[...new Set(CHAPS[t].flatMap(ch=>ch.dafim))];
+  allNums.filter(n=>n>=from&&n<=to).forEach(n=>{lp[t][n]=true;});
+  setLearned(lp);
+  document.getElementById(`rpicker_${t}`).style.display='none';
+  renderLearnedPages();
+  showToast(`Dafim ${from}–${to} marked learned ✓`);
+}
+
+function updateLearnedCount(t){
+  const lp=getLearned();const tl=lp[t]||{};
+  const allNums=[...new Set(CHAPS[t].flatMap(ch=>ch.dafim))];
+  const count=allNums.filter(n=>tl[n]).length;
+  // update header
+  const cards=document.querySelectorAll('.lib-tractate');
+  cards.forEach(c=>{
+    if(c.querySelector('.lib-tract-name')?.textContent===t){
+      const meta=c.querySelector('.lib-tract-meta');
+      if(meta) meta.textContent=`${count}/${allNums.length} dafim marked learned`;
+    }
+  });
+}
+
+// ── UPLOAD ──
+function handleFileSelect(e){
+  const file=e.target.files[0];if(!file)return;
+  readTractateFile(file);
+  e.target.value='';
+}
+function handleFileDrop(e){
+  e.preventDefault();document.getElementById('uploadZone').classList.remove('drag');
+  const file=e.dataTransfer.files[0];if(!file)return;
+  readTractateFile(file);
+}
+function readTractateFile(file){
+  const fb=document.getElementById('uploadFeedback');
+  fb.innerHTML='<span style="color:var(--muted)">Reading…</span>';
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      importTractate(data);
+    } catch(err){
+      fb.innerHTML=`<span style="color:var(--red)">❌ Invalid JSON: ${err.message}</span>`;
+    }
+  };
+  reader.readAsText(file);
+}
+function importTractate(data,opts={}){
+  const {skipPublish=false,silent=false}=opts;
+  const fb=document.getElementById('uploadFeedback');
+  if(!data.tractate||!data.dafim){
+    fb.innerHTML='<span style="color:var(--red)">❌ Missing required fields: tractate, dafim</span>';return;
+  }
+  const t=normTractate(data.tractate);
+  let added=0,updated=0;
+  const importedNums=[];
+  data.dafim.forEach(df=>{
+    if(!df.n||!df.pts||df.pts.length<1){return;}
+    const n=Number(df.n);
+    const entry={n,t,sw:df.sw||'',sh:df.sh||h(n),st:df.st||'',pts:df.pts.map(p=>({ti:p.ti||'',s:p.s||'',d:p.d||p.ti||''}))};
+    if(getDaf(t,n)) updated++;else added++;
+    upsertDaf(entry);
+    importedNums.push(n);
+  });
+
+  // update chapters
+  if(Array.isArray(data.chapters)&&data.chapters.length){
+    CHAPS[t]=data.chapters.map(ch=>({
+      name:ch.name||t,
+      dafim:[...new Set((ch.dafim||[]).map(Number).filter(Boolean))].sort((a,b)=>a-b)
+    }));
+  } else if(!CHAPS[t]||!CHAPS[t].length){
+    CHAPS[t]=[{name:t,dafim:[]}];
+  }
+  const known=new Set((CHAPS[t]||[]).flatMap(ch=>ch.dafim||[]));
+  importedNums.forEach(n=>{if(!known.has(n)){CHAPS[t][0].dafim.push(n);known.add(n);}});
+  CHAPS[t].forEach(ch=>{ch.dafim=[...new Set((ch.dafim||[]).map(Number).filter(Boolean))].sort((a,b)=>a-b);});
+
+  // persist custom dafim
+  const existing=ls('customDafim',{});
+  data.dafim.forEach(df=>{
+    const n=Number(df.n);
+    if(!n) return;
+    if(!existing[t])existing[t]={};
+    const entry=getDaf(t,n);
+    if(entry) existing[t][n]=entry;
+  });
+  lss('customDafim',existing);
+  if(fb) fb.innerHTML=`<span style="color:var(--green)">✓ Imported ${t}: ${added} new, ${updated} updated dafim. Go to <strong>Learned Pages</strong> to mark what you've studied.</span>`;
+  if(!silent) showToast(`${t} imported! ${added+updated} dafim added.`);
+  if(data.tractate){
+    renderLearnedPages();
+    renderHome();
+    renderBrowse();
+    renderQuizSetup();
+    renderProgress();
+  }
+  if(!skipPublish && _currentUser && _fbDb){
+    publishTractateToCloud(t).catch(e=>console.warn('publish tractate failed:',e.message));
+  }
+}
+
+// ── MANUAL ADD ──
+function saveManualDaf(){
+  const t=(document.getElementById('maTractate').value||'').trim();
+  const n=parseInt(document.getElementById('maDaf').value);
+  const sw=(document.getElementById('maSimanW').value||'').trim();
+  const sh=(document.getElementById('maSimanH').value||'').trim();
+  const st=(document.getElementById('maSiman').value||'').trim();
+  const fb=document.getElementById('maFeedback');
+  if(!t||!n||!sw){fb.innerHTML='<span style="color:var(--red)">Please fill in Tractate, Daf number, and Siman word.</span>';return;}
+  const pts=[];
+  [1,2,3].forEach(i=>{
+    const ti=(document.getElementById(`maPt${i}ti`).value||'').trim();
+    const s=(document.getElementById(`maPt${i}s`).value||'').trim();
+    const d=(document.getElementById(`maPt${i}d`).value||'').trim();
+    if(ti) pts.push({ti,s:s||ti,d:d||s||ti});
+  });
+  if(!pts.length){fb.innerHTML='<span style="color:var(--red)">Add at least one point.</span>';return;}
+  const entry={n,t,sw,sh:sh||h(n),st,pts};
+  upsertDaf(entry);
+  if(!CHAPS[t]) CHAPS[t]=[{name:t,dafim:[]}];
+  if(!CHAPS[t][0].dafim.includes(n)) CHAPS[t][0].dafim.push(n);
+  CHAPS[t][0].dafim.sort((a,b)=>a-b);
+  // persist
+  const existing=ls('customDafim',{});
+  if(!existing[t])existing[t]={};
+  existing[t][n]=entry;
+  lss('customDafim',existing);
+  // auto-mark as learned
+  const lp=getLearned();if(!lp[t])lp[t]={};
+  lp[t][n]=true;setLearned(lp);
+  fb.innerHTML=`<span style="color:var(--green)">✓ Daf ${n} (${h(n)}) saved to ${t} and marked as learned!</span>`;
+  showToast(`Daf ${n} added ✓`);
+  if(_currentUser&&_fbDb){
+    publishTractateToCloud(t).catch(e=>console.warn('publish tractate failed:',e.message));
+  }
+}
+function clearManualForm(){
+  ['maTractate','maDaf','maSimanW','maSimanH','maHebNum','maSiman','maPt1ti','maPt1s','maPt1d','maPt2ti','maPt2s','maPt2d','maPt3ti','maPt3s','maPt3d'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('maFeedback').innerHTML='';
+}
+// load persisted custom dafim on startup
+function loadCustomDafim(){
+  const existing=ls('customDafim',{});
+  Object.keys(existing).forEach(t=>{
+    Object.keys(existing[t]).forEach(n=>{
+      const entry=existing[t][n];
+      if(!entry.t) entry.t=t;
+      upsertDaf(entry);
+      if(!CHAPS[t]) CHAPS[t]=[{name:t,dafim:[]}];
+      if(!CHAPS[t][0].dafim.includes(entry.n)) CHAPS[t][0].dafim.push(entry.n);
+    });
+    CHAPS[t][0].dafim.sort((a,b)=>a-b);
+  });
+}
+
+/* ════════════════════ FIREBASE / GOOGLE AUTH ════════════════════ */
+// Firebase config — this app is designed to run for free forever on
+// Firebase's free Spark plan (Auth + Firestore both have generous free
+// tiers with no credit card required).
+//
+// TO ENABLE GOOGLE SIGN-IN (one-time, ~5 min, free):
+//   1. Go to https://console.firebase.google.com → Add project (free)
+//   2. Build → Authentication → Get started → enable "Google" sign-in method
+//   3. Build → Firestore Database → Create database → start in production mode
+//   4. Project settings (gear icon) → General → "Your apps" → Web app (</>) → register
+//   5. Copy the firebaseConfig object it gives you and paste the values below
+//   6. Authentication → Settings → Authorized domains → add the domain you're
+//      hosting this file on (e.g. yourname.github.io or your Firebase Hosting domain)
+//
+// If you leave this as the placeholder, the app runs fully in "guest mode"
+// (all data stays in this browser) — no errors, no broken buttons.
+const DEFAULT_FB_CONFIG={
+  apiKey: "AIzaSyDJ74s_pQJMH0DVCrIPXEhrQEI66uLhUy8",
+  authDomain: "tracking-app-0001.firebaseapp.com",
+  projectId: "tracking-app-0001",
+  storageBucket: "tracking-app-0001.firebasestorage.app",
+  messagingSenderId: "614874555630",
+  appId: "1:614874555630:web:b9098a8ddf5feff7817fff",
+  measurementId: "G-VVSW70J1BL"
+};
+function isFirebaseConfigUsable(cfg){
+  return !!(cfg && typeof cfg==='object' && cfg.apiKey && cfg.authDomain && cfg.projectId && !String(cfg.apiKey).includes('Example'));
+}
+function getSavedFirebaseConfig(){
+  const saved=ls('firebaseConfig',null);
+  if(isFirebaseConfigUsable(saved)) return saved;
+  return DEFAULT_FB_CONFIG;
+}
+let FB_CONFIG=getSavedFirebaseConfig();
+let FB_CONFIGURED=isFirebaseConfigUsable(FB_CONFIG);
+
+let _fbApp=null,_fbAuth=null,_fbDb=null,_currentUser=null,_authResolving=false;
+let _cloudSyncTimer=null,_cloudSyncDirty=false,_cloudSyncInFlight=false,_suppressCloudSync=false;
+let _hydratedUid=null,_hydratingUid=null;
+
+function refreshFirebaseConfigStatus(){
+  const input=document.getElementById('firebaseConfigInput');
+  const status=document.getElementById('firebaseConfigStatus');
+  if(input){
+    input.value='';
+    input.placeholder=FB_CONFIGURED
+      ?`Connected to ${FB_CONFIG.projectId}. Paste custom config only if switching projects.`
+      :'Paste Firebase web config JSON here.';
+  }
+  if(status){
+    status.style.color=FB_CONFIGURED?'var(--green)':'var(--muted)';
+    status.textContent=FB_CONFIGURED
+      ?`Connected to Firebase project: ${FB_CONFIG.projectId}`
+      :'Firebase is not configured.';
+  }
+}
+
+function saveFirebaseConfig(){
+  const status=document.getElementById('firebaseConfigStatus');
+  const input=document.getElementById('firebaseConfigInput');
+  const raw=(input?.value||'').trim();
+  if(!raw){
+    if(status){status.style.color='var(--red)';status.textContent='Paste your Firebase web config JSON first.';}
+    return;
+  }
+
+  let parsed=null;
+  let cleaned=raw.replace(/^const\s+\w+\s*=\s*/,'').trim().replace(/;\s*$/,'');
+  try{
+    parsed=JSON.parse(cleaned);
+  } catch(e){
+    try{
+      parsed=(new Function('return ('+cleaned+')'))();
+    } catch(e2){
+      if(status){status.style.color='var(--red)';status.textContent='Could not parse config. Paste the exact firebaseConfig object from Firebase console.';}
+      return;
+    }
+  }
+
+  if(!isFirebaseConfigUsable(parsed)){
+    if(status){status.style.color='var(--red)';status.textContent='Config is missing required fields (apiKey, authDomain, projectId).';}
+    return;
+  }
+
+  lss('firebaseConfig',parsed);
+  FB_CONFIG=parsed;
+  FB_CONFIGURED=true;
+  if(status){status.style.color='var(--green)';status.textContent='Firebase config saved. Reloading app...';}
+  showToast('Firebase config saved ✓');
+  setTimeout(()=>location.reload(),600);
+}
+
+function clearFirebaseConfig(){
+  localStorage.removeItem('z_firebaseConfig');
+  FB_CONFIG=DEFAULT_FB_CONFIG;
+  FB_CONFIGURED=isFirebaseConfigUsable(FB_CONFIG);
+  showToast('Using built-in Firebase config');
+  setTimeout(()=>location.reload(),300);
+}
+
+function scheduleCloudSync(){
+  if(!_currentUser||!_fbDb) return;
+  _cloudSyncDirty=true;
+  if(_cloudSyncTimer) clearTimeout(_cloudSyncTimer);
+  _cloudSyncTimer=setTimeout(()=>syncToCloud(true),2500);
+}
+
+function tractateDocId(t){
+  return normTractate(t).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'tractate';
+}
+function describeFirebaseError(e){
+  const msg=e?.message||String(e||'Unknown Firebase error');
+  const code=e?.code||'';
+  if(code==='permission-denied'||/insufficient permissions|permission/i.test(msg)){
+    return 'Firestore blocked this write. Deploy the repo firestore.rules to project tracking-app-0001, then try again.';
+  }
+  if(code==='unauthenticated'||/auth/i.test(msg)){
+    return 'Google sign-in is not active for this write. Sign out, sign back in, then try again.';
+  }
+  return msg;
+}
+async function requireCloudUser(){
+  if(!_fbAuth||!_fbDb) throw new Error('Firebase is not initialized.');
+  const user=_fbAuth.currentUser||_currentUser;
+  if(!user) throw new Error('Sign in first.');
+  await user.getIdToken(true);
+  _currentUser=user;
+  return user;
+}
+function serializeTractate(t){
+  return {
+    tractate:t,
+    chapters:(CHAPS[t]||[]).map(ch=>({name:ch.name||t,dafim:[...(ch.dafim||[])].map(Number).filter(Boolean).sort((a,b)=>a-b)})),
+    dafim:getDafsForTractate(t).map(df=>({
+      n:Number(df.n),
+      sw:df.sw||'',
+      sh:df.sh||h(df.n),
+      st:df.st||'',
+      pts:(df.pts||[]).map(p=>({ti:p.ti||'',s:p.s||'',d:p.d||p.s||p.ti||''}))
+    }))
+  };
+}
+async function publishTractateToCloud(t){
+  const user=await requireCloudUser();
+  const payload=serializeTractate(t);
+  if(!payload.dafim.length) return;
+  await _fbDb.collection('tractates').doc(tractateDocId(t)).set({
+    tractate:payload.tractate,
+    chapters:payload.chapters,
+    dafCount:payload.dafim.length,
+    updatedAt:new Date().toISOString(),
+    updatedBy:{uid:user.uid,name:user.displayName||'',email:user.email||''}
+  },{merge:true});
+
+  for(let i=0;i<payload.dafim.length;i+=450){
+    const batch=_fbDb.batch();
+    payload.dafim.slice(i,i+450).forEach(df=>{
+      const ref=_fbDb.collection('tractates').doc(tractateDocId(t)).collection('dafim').doc(String(df.n));
+      batch.set(ref,{...df,t:payload.tractate,updatedAt:new Date().toISOString()},{merge:true});
+    });
+    await batch.commit();
+  }
+}
+function collectUserState(){
+  const settings={anthropicKey:ls('anthropicKey',''),openaiKey:ls('openaiKey',''),userName:ls('userName','')};
+  const study={
+    studyProgress:ls('studyProgress',{}),
+    currentTractate:ls('currentTractate',''),
+    learnedPages:ls('learnedPages',{}),
+    recent:ls('recent',[])
+  };
+  const progress={mastery:{},bookmarks:{},notes:{}};
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(!k||!k.startsWith('z_')) continue;
+    const short=k.slice(2);
+    let parsed;
+    try{parsed=JSON.parse(localStorage.getItem(k));}catch(e){parsed=localStorage.getItem(k);}
+    if(short.startsWith('m_')) progress.mastery[short]=parsed;
+    else if(short.startsWith('bk_')) progress.bookmarks[short]=parsed;
+    else if(short.startsWith('cp_')) progress.notes[short]=parsed;
+  }
+  return {
+    version:2,
+    profile:{displayName:_currentUser?.displayName||'',email:_currentUser?.email||''},
+    settings,
+    study,
+    progress,
+    custom:{customDafim:ls('customDafim',{})}
+  };
+}
+function applyUserState(state){
+  if(!state||typeof state!=='object') return;
+  const setZ=(k,v)=>localStorage.setItem('z_'+k,JSON.stringify(v));
+  if(state.settings){
+    if(typeof state.settings.anthropicKey!=='undefined') setZ('anthropicKey',state.settings.anthropicKey);
+    if(typeof state.settings.openaiKey!=='undefined') setZ('openaiKey',state.settings.openaiKey);
+    if(typeof state.settings.userName!=='undefined') setZ('userName',state.settings.userName);
+  }
+  if(state.study){
+    if(typeof state.study.studyProgress!=='undefined') setZ('studyProgress',state.study.studyProgress);
+    if(typeof state.study.currentTractate!=='undefined') setZ('currentTractate',state.study.currentTractate);
+    if(typeof state.study.learnedPages!=='undefined') setZ('learnedPages',state.study.learnedPages);
+    if(typeof state.study.recent!=='undefined') setZ('recent',state.study.recent);
+  }
+  if(state.progress){
+    Object.entries(state.progress.mastery||{}).forEach(([k,v])=>setZ(k,v));
+    Object.entries(state.progress.bookmarks||{}).forEach(([k,v])=>setZ(k,v));
+    Object.entries(state.progress.notes||{}).forEach(([k,v])=>setZ(k,v));
+  }
+  if(state.custom && typeof state.custom.customDafim!=='undefined'){
+    const merged={...ls('customDafim',{})};
+    Object.entries(state.custom.customDafim||{}).forEach(([t,dafs])=>{
+      merged[t]={...(merged[t]||{}),...(dafs||{})};
+    });
+    setZ('customDafim',merged);
+  }
+}
+
+function initFirebase(){
+  if(!FB_CONFIGURED){
+    console.info('Zichru: Firebase not configured — running in guest/local-only mode.');
+    return;
+  }
+  try{
+    if(typeof firebase==='undefined'){console.warn('Firebase SDK not loaded (check network/ad-blocker)');return;}
+    if(!_fbApp){
+      _fbApp=firebase.initializeApp(FB_CONFIG);
+      _fbAuth=firebase.auth();
+      _fbDb=firebase.firestore();
+    }
+    // Catch the result of a redirect-based sign-in (most reliable across
+    // embedded browsers, iframes/artifact previews, and mobile webviews,
+    // where signInWithPopup is frequently blocked).
+    _authResolving=true;
+    _fbAuth.getRedirectResult().catch(e=>{
+      if(e && e.code && e.code!=='auth/no-auth-event'){
+        console.warn('Redirect sign-in error:',e.message);
+        const el=document.getElementById('authError');
+        if(el){el.style.display='block';el.textContent='Sign-in failed: '+e.message;}
+      }
+    }).finally(()=>{ _authResolving=false; });
+
+    _fbAuth.onAuthStateChanged(user=>{
+      _currentUser=user;
+      updateAuthUI(user);
+    });
+    loadSharedTractatesFromCloud(true).catch(()=>{});
+  } catch(e){
+    console.warn('Firebase init error:',e.message);
+  }
+}
+
+async function signInWithGoogle(){
+  const errEl=document.getElementById('authError');
+  if(errEl){errEl.style.display='none';errEl.textContent='';}
+
+  if(!FB_CONFIGURED){
+    if(errEl){
+      errEl.style.display='block';
+      errEl.textContent='Cloud sign-in is not configured yet. Paste your Firebase web config JSON in the Account section and save it.';
+    }
+    return;
+  }
+  if(!_fbAuth){
+    if(errEl){errEl.style.display='block';errEl.textContent='Firebase failed to load. Check your internet connection and try again.';}
+    return;
+  }
+  const provider=new firebase.auth.GoogleAuthProvider();
+  try{
+    // Try popup first (nicer UX when it works), fall back to redirect
+    // automatically when the environment blocks popups (sandboxed iframes,
+    // many in-app/embedded browsers, some mobile webviews).
+    await _fbAuth.signInWithPopup(provider);
+  } catch(e){
+    const envBlockedCodes=['auth/popup-blocked','auth/operation-not-supported-in-this-environment'];
+    const userCancelledCodes=['auth/popup-closed-by-user','auth/cancelled-popup-request'];
+    if(envBlockedCodes.includes(e.code)){
+      try{
+        await _fbAuth.signInWithRedirect(provider);
+        // Page will navigate away here; nothing further to do.
+        return;
+      } catch(e2){
+        if(errEl){errEl.style.display='block';errEl.textContent='Sign-in failed: '+e2.message;}
+      }
+    } else if(userCancelledCodes.includes(e.code)){
+      // User dismissed the popup themselves — no error message needed.
+    } else {
+      if(errEl){errEl.style.display='block';errEl.textContent='Sign-in failed: '+e.message;}
+    }
+  }
+}
+
+async function signOut(){
+  if(_fbAuth) await _fbAuth.signOut();
+  _currentUser=null;
+  _cloudSyncDirty=false;
+  if(_cloudSyncTimer){clearTimeout(_cloudSyncTimer);_cloudSyncTimer=null;}
+  updateAuthUI(null);
+  showToast('Signed out');
+}
+
+function updateAuthUI(user){
+  const lo=document.getElementById('authLoggedOut');
+  const li=document.getElementById('authLoggedIn');
+  const av=document.getElementById('userAvatar');
+  if(!lo||!li) return;
+  if(user){
+    lo.style.display='none'; li.style.display='block';
+    document.getElementById('authName').textContent=user.displayName||'User';
+    document.getElementById('authEmail').textContent=user.email||'';
+    const photo=document.getElementById('authPhoto');
+    if(user.photoURL) photo.src=user.photoURL;
+    else photo.src='';
+    if(av){av.style.display='flex';av.textContent=(user.displayName||'U')[0].toUpperCase();}
+    document.getElementById('greetName').textContent=user.displayName?.split(' ')[0]||'Chavrusa';
+    renderAccountSummary();
+    if(_hydratedUid!==user.uid && _hydratingUid!==user.uid) hydrateSignedInUser(user);
+  } else {
+    lo.style.display='block'; li.style.display='none';
+    if(av) av.style.display='none';
+    const accountSummary=document.getElementById('accountSummary');
+    if(accountSummary) accountSummary.textContent='';
+    _hydratedUid=null;
+    _hydratingUid=null;
+  }
+}
+
+function renderAll(){
+  renderHome();
+  renderBrowse();
+  renderProgress();
+  renderQuizSetup();
+  renderSettings();
+  renderAccountSummary();
+}
+
+function renderAccountSummary(){
+  const el=document.getElementById('accountSummary');
+  if(!el||!_currentUser) return;
+  const learned=getLearned();
+  const learnedCount=Object.values(learned).reduce((sum,t)=>sum+Object.keys(t||{}).length,0);
+  const tractateCount=getTractates().length;
+  const pageCount=getAllDafim().length;
+  const {selected,sp}=getStudyProgressState();
+  const rhythm=sp[selected]?.rhythm||'daily';
+  el.textContent=`Your account: ${learnedCount} learned pages · ${rhythm} pace · ${tractateCount} tractates / ${pageCount} pages available`;
+}
+
+async function hydrateSignedInUser(user){
+  if(!user||!_fbDb)return;
+  _hydratingUid=user.uid;
+  _suppressCloudSync=true;
+  const statusEl=document.getElementById('syncStatus');
+  if(statusEl) statusEl.textContent='Loading your account…';
+  try{
+    await loadSharedTractatesFromCloud(true);
+    const loadedUserState=await loadUserStateFromCloud(user.uid);
+    loadCustomDafim();
+    await loadSharedTractatesFromCloud(true);
+    if(statusEl) statusEl.textContent=loadedUserState?'Account loaded ✓':'New account ready ✓';
+    _hydratedUid=user.uid;
+    renderAll();
+    if(!loadedUserState) syncToCloud(true);
+  } catch(e){
+    console.warn('account hydrate:',e);
+    if(statusEl) statusEl.textContent='Account load failed: '+e.message;
+  } finally {
+    _suppressCloudSync=false;
+    _hydratingUid=null;
+  }
+}
+
+async function loadUserStateFromCloud(uid){
+  if(!_fbDb)return false;
+  const stateDoc=await _fbDb.collection('users').doc(uid).collection('state').doc('main').get();
+  if(stateDoc.exists){
+    applyUserState(stateDoc.data());
+    return true;
+  }
+
+  const doc=await _fbDb.collection('users').doc(uid).get();
+  if(!doc.exists) return false;
+  const data=doc.data();
+  let found=false;
+  if(data.settings||data.study){
+    applyUserState({
+      settings:data.settings||{},
+      study:data.study||{}
+    });
+    found=true;
+  }
+  Object.keys(data).forEach(k=>{
+    if(k.startsWith('z_')){
+      localStorage.setItem(k,data[k]);
+      found=true;
+    }
+  });
+  return found;
+}
+
+async function syncToCloud(silent=false){
+  let user;
+  try{
+    user=await requireCloudUser();
+  } catch(e){
+    if(!silent) showToast(describeFirebaseError(e));
+    return;
+  }
+  if(_cloudSyncInFlight){
+    _cloudSyncDirty=true;
+    return;
+  }
+  if(_cloudSyncTimer){clearTimeout(_cloudSyncTimer);_cloudSyncTimer=null;}
+  _cloudSyncInFlight=true;
+  _cloudSyncDirty=false;
+
+  const statusEl=document.getElementById('syncStatus');
+  if(statusEl) statusEl.textContent=silent?'Auto-syncing…':'Syncing…';
+
+  const state=collectUserState();
+  try{
+    await _fbDb.collection('users').doc(user.uid).set({
+      profile:state.profile,
+      settings:state.settings,
+      study:state.study,
+      updatedAt:new Date().toISOString(),
+      schemaVersion:2
+    },{merge:true});
+    await _fbDb.collection('users').doc(user.uid).collection('state').doc('main').set(state,{merge:true});
+    if(statusEl) statusEl.textContent='Synced ✓ '+new Date().toLocaleTimeString()+(silent?' (auto)':'');
+    if(!silent) showToast('Progress synced to cloud ✓');
+  } catch(e){
+    if(statusEl) statusEl.textContent='Sync failed: '+describeFirebaseError(e);
+    if(!silent) showToast('Cloud sync failed');
+  } finally {
+    _cloudSyncInFlight=false;
+    if(_cloudSyncDirty && _currentUser && _fbDb){
+      if(_cloudSyncTimer) clearTimeout(_cloudSyncTimer);
+      _cloudSyncTimer=setTimeout(()=>syncToCloud(true),2500);
+    }
+  }
+}
+
+async function loadFromCloud(){
+  if(!_currentUser||!_fbDb){showToast('Sign in first');return;}
+  document.getElementById('syncStatus').textContent='Loading from cloud…';
+  _suppressCloudSync=true;
+  try{
+    const loaded=await loadUserStateFromCloud(_currentUser.uid);
+    if(!loaded){document.getElementById('syncStatus').textContent='No cloud data found';return;}
+    loadCustomDafim();
+    await loadSharedTractatesFromCloud(true);
+    document.getElementById('syncStatus').textContent='Loaded from cloud ✓';
+    showToast('Progress loaded from cloud ✓');
+    renderAll();
+  } catch(e){
+    document.getElementById('syncStatus').textContent='Load failed: '+e.message;
+  } finally {
+    _suppressCloudSync=false;
+  }
+}
+
+async function syncSharedTractatesToCloud(){
+  const statusEl=document.getElementById('syncStatus');
+  if(statusEl) statusEl.textContent='Publishing tractates…';
+  try{
+    await requireCloudUser();
+    const tractates=getTractates();
+    for(const t of tractates){ await publishTractateToCloud(t); }
+    if(statusEl) statusEl.textContent=`Published ${tractates.length} tractates ✓`;
+    showToast('Shared tractates updated ✓');
+  } catch(e){
+    if(statusEl) statusEl.textContent='Tractate publish failed: '+describeFirebaseError(e);
+    showToast('Failed to publish tractates');
+  }
+}
+
+async function testFirebaseConnection(){
+  const statusEl=document.getElementById('syncStatus');
+  if(statusEl) statusEl.textContent='Checking Firebase connection…';
+  try{
+    const user=await requireCloudUser();
+    const now=new Date().toISOString();
+    await _fbDb.collection('users').doc(user.uid).collection('diagnostics').doc('connection').set({checkedAt:now},{merge:true});
+    await _fbDb.collection('tractates').doc('_connection_test').set({
+      tractate:'_connection_test',
+      dafCount:0,
+      updatedAt:now,
+      updatedBy:{uid:user.uid,email:user.email||''}
+    },{merge:true});
+    if(statusEl) statusEl.textContent='Firebase connection OK ✓ user sync + shared tractate writes allowed';
+    showToast('Firebase connection OK ✓');
+  } catch(e){
+    const message=describeFirebaseError(e);
+    if(statusEl) statusEl.textContent='Connection check failed: '+message;
+    showToast('Connection check failed');
+  }
+}
+
+async function loadSharedTractatesFromCloud(silent=false){
+  if(!_fbDb) return;
+  const statusEl=document.getElementById('syncStatus');
+  if(!silent && statusEl) statusEl.textContent='Loading shared tractates…';
+  const prevSuppress=_suppressCloudSync;
+  _suppressCloudSync=true;
+  try{
+    const snap=await _fbDb.collection('tractates').get();
+    let count=0;
+    for(const doc of snap.docs){
+      const data=doc.data();
+      if(!data?.tractate) continue;
+      let dafim=Array.isArray(data.dafim)?data.dafim:[];
+      if(!dafim.length){
+        const dafimSnap=await doc.ref.collection('dafim').get();
+        dafim=dafimSnap.docs.map(d=>d.data()).filter(df=>df&&df.n);
+      }
+      if(!dafim.length) continue;
+      importTractate({
+        tractate:data.tractate,
+        hebrew:data.hebrew||'',
+        chapters:data.chapters||[{name:data.tractate,dafim:dafim.map(df=>df.n)}],
+        dafim
+      },{skipPublish:true,silent:true});
+      count++;
+    }
+    if(!silent){
+      if(statusEl) statusEl.textContent=`Loaded ${count} shared tractates ✓`;
+      showToast(`Loaded ${count} shared tractates`);
+    }
+    renderHome();renderBrowse();renderQuizSetup();renderProgress();renderLearnedPages();
+  } catch(e){
+    if(!silent){
+      if(statusEl) statusEl.textContent='Load tractates failed: '+e.message;
+      showToast('Failed to load shared tractates');
+    }
+  } finally {
+    _suppressCloudSync=prevSuppress;
+  }
+}
+
+function saveGuestName(){
+  const v=document.getElementById('guestNameInput').value.trim();
+  if(!v){showToast('Enter your name first');return;}
+  lss('userName',v);
+  document.getElementById('greetName').textContent=v;
+  if(_currentUser&&_fbDb){
+    _fbDb.collection('users').doc(_currentUser.uid).set({settings:{userName:v}},{merge:true}).catch(()=>{});
+  }
+  showToast('Welcome, '+v+'!');
+}
+
+/* ════════════════════ SETTINGS ════════════════════ */
+// Two separate keys: anthropicKey (for PDF parsing), openaiKey (for recall grading)
+// Helper: get best key for a given use
+function getAIKey(purpose='grading'){
+  const ant=ls('anthropicKey','');
+  const oai=ls('openaiKey','');
+  if(purpose==='pdf') return {key:ant||oai,type:ant?'anthropic':'openai'};
+  return {key:oai||ant,type:oai?'openai':'anthropic'};
+}
+// Legacy: single apiKey still supported
+const apiKey=()=>ls('anthropicKey','')||ls('openaiKey','')||ls('apiKey','');
+
+function renderSettings(){
+  const ant=ls('anthropicKey','');
+  const oai=ls('openaiKey','');
+  const antEl=document.getElementById('anthropicKeyInput');
+  const oaiEl=document.getElementById('openaiKeyInput');
+  if(antEl){
+    antEl.value='';
+    antEl.placeholder=ant?'Saved (enter a new key to replace)':'sk-ant-…';
+  }
+  if(oaiEl){
+    oaiEl.value='';
+    oaiEl.placeholder=oai?'Saved (enter a new key to replace)':'sk-…';
+  }
+  const ks=document.getElementById('keyStatus');
+  if(ks){
+    const parts=[];
+    if(ant) parts.push('Anthropic ✓');
+    if(oai) parts.push('OpenAI ✓');
+    ks.textContent=parts.length?parts.join(' · '):'No keys saved';
+  }
+  document.getElementById('apiDot').classList.toggle('set',!!(ant||oai));
+  // name
+  const ni=document.getElementById('guestNameInput');
+  if(ni) ni.value=ls('userName','');
+  // auth UI
+  updateAuthUI(_currentUser);
+  refreshFirebaseConfigStatus();
+  // library
+  renderLearnedPages();
+  checkPdfKeyStatus();
+}
+
+function saveKeys(){
+  const antEl=document.getElementById('anthropicKeyInput');
+  const oaiEl=document.getElementById('openaiKeyInput');
+  const ant=(antEl?.value||'').trim();
+  const oai=(oaiEl?.value||'').trim();
+  const hadAnt=!!ls('anthropicKey','');
+  const hadOai=!!ls('openaiKey','');
+  let changed=false;
+  if(ant){lss('anthropicKey',ant);changed=true;}
+  if(oai){lss('openaiKey',oai);changed=true;}
+  // sync to cloud if signed in
+  if(_currentUser&&_fbDb){
+    const update={settings:{}};
+    if(ant) update.settings.anthropicKey=ant;
+    if(oai) update.settings.openaiKey=oai;
+    if(Object.keys(update.settings).length) _fbDb.collection('users').doc(_currentUser.uid).set(update,{merge:true});
+  }
+  const hasAny=!!(ls('anthropicKey','')||ls('openaiKey',''));
+  document.getElementById('apiDot').classList.toggle('set',hasAny);
+  if(changed){
+    document.getElementById('keyStatus').textContent='Keys saved ✓';
+    showToast('API keys saved!');
+  } else if(hadAnt||hadOai){
+    document.getElementById('keyStatus').textContent='No new key entered (existing keys kept)';
+    showToast('Existing keys kept');
+  } else {
+    document.getElementById('keyStatus').textContent='No key entered';
+    showToast('Enter a key first');
+  }
+  if(antEl) antEl.value='';
+  if(oaiEl) oaiEl.value='';
+  checkPdfKeyStatus();
+}
+function clearKeys(){
+  lss('anthropicKey','');lss('openaiKey','');lss('apiKey','');
+  document.getElementById('anthropicKeyInput').value='';
+  document.getElementById('openaiKeyInput').value='';
+  document.getElementById('apiDot').classList.remove('set');
+  document.getElementById('keyStatus').textContent='Keys cleared';
+  if(_currentUser&&_fbDb&&typeof firebase!=='undefined'&&firebase.firestore?.FieldValue){
+    const del=firebase.firestore.FieldValue.delete();
+    _fbDb.collection('users').doc(_currentUser.uid).set({settings:{anthropicKey:del,openaiKey:del}},{merge:true}).catch(()=>{});
+  }
+  showToast('Keys cleared');
+}
+// Legacy single-key functions (keep for backward compat)
+function saveKey(){saveKeys();}
+function clearKey(){clearKeys();}
+function saveName(){
+  const v=(document.getElementById('guestNameInput')?.value||'').trim();
+  lss('userName',v||'Chavrusa');
+  document.getElementById('greetName').textContent=v||'Chavrusa';
+  showToast('Name saved!');
+}
+
+/* ════════════════════ PDF IMPORT (FIXED) ════════════════════ */
+let _pdfExtractedData=null;
+
+function checkPdfKeyStatus(){
+  const ant=ls('anthropicKey','');
+  const oai=ls('openaiKey','');
+  const el=document.getElementById('pdfNeedKey');
+  if(el) el.style.display=(ant||oai)?'none':'block';
+}
+
+function libTab(name,el){
+  document.querySelectorAll('.lib-tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  ['libLearned','libPdf','libUpload','libManual'].forEach(id=>{
+    const e=document.getElementById(id);if(e) e.style.display='none';
+  });
+  const map={learned:'libLearned',pdf:'libPdf',upload:'libUpload',manual:'libManual'};
+  const target=document.getElementById(map[name]);
+  if(target) target.style.display='';
+  if(name==='pdf') checkPdfKeyStatus();
+  if(name==='learned') renderLearnedPages();
+}
+
+function renderLibrary(){ renderLearnedPages(); }
+
+let _pdfQueue=[];
+
+function handlePdfSelect(e){
+  const files=Array.from(e.target.files||[]);
+  e.target.value='';
+  if(!files.length)return;
+  queuePdfFiles(files);
+}
+function handlePdfDrop(e){
+  e.preventDefault();
+  document.getElementById('pdfUploadZone').classList.remove('drag');
+  const files=Array.from(e.dataTransfer.files||[]).filter(f=>f.type==='application/pdf'||f.name.toLowerCase().endsWith('.pdf'));
+  if(!files.length){showToast('Drop one or more PDF files');return;}
+  queuePdfFiles(files);
+}
+function queuePdfFiles(files){
+  _pdfQueue=files.slice(1); // process first now, rest are queued
+  if(_pdfQueue.length) pdfLog(`Queued ${_pdfQueue.length} more PDF(s) — they'll process automatically after this one.`);
+  parsePdfFile(files[0]);
+}
+function processNextQueuedPdf(){
+  if(!_pdfQueue.length)return;
+  const next=_pdfQueue.shift();
+  setTimeout(()=>parsePdfFile(next),400);
+}
+
+function showPdfStep(n){
+  [1,2,3,4].forEach(i=>{
+    const el=document.getElementById('pdfStep'+i);
+    if(el) el.style.display=(i===n)?'':'none';
+  });
+}
+function pdfLog(msg){const el=document.getElementById('pdfLog');if(el){el.innerHTML+=msg+'<br>';el.scrollTop=el.scrollHeight;}}
+function setPdfProgress(pct,title){
+  const bar=document.getElementById('pdfProgressBar');
+  if(bar) bar.style.width=Math.min(100,pct)+'%';
+  const t=document.getElementById('pdfStatusTitle');
+  if(t&&title) t.textContent=title;
+}
+
+const PDF_PROMPT=`You are extracting structured data from a Zichru Talmud study booklet PDF.
+
+The PDF structure:
+1. OVERVIEW / BLUE-BOX PAGES: Lists dafim with Hebrew letter, English siman word, and 3 bullet topics (one line each) per daf.
+2. PER-DAF DETAIL PAGES (labeled "Daf N"): Each has 3 numbered points with a bold title and explanation paragraph, plus a boxed "Siman" story at the bottom.
+3. The tractate name appears on the cover and headers (e.g. "מסכת ברכות" / "Berachos").
+
+Extract ALL dafim. Return ONLY valid JSON — no markdown, no explanation, just the JSON object:
+
+{"tractate":"English name","hebrew":"שם בעברית","chapters":[{"name":"פרק א — ...","dafim":[2,3,4]}],"dafim":[{"n":2,"sw":"House","sh":"ב","st":"Full siman story text here.","pts":[{"ti":"Topic title 5-8 words","s":"One-sentence summary.","d":"Full explanation paragraph."},{"ti":"...","s":"...","d":"..."},{"ti":"...","s":"...","d":"..."}]}]}
+
+Rules:
+- n = integer daf number
+- sw = English siman word (e.g. House, Camel, Door)
+- sh = Hebrew letter(s) for that daf (ב, ג, ד, ... כ, כא, etc.)
+- st = complete siman story (the memorable story connecting the 3 points)
+- pts = exactly 3 items always; if no detail page exists use bullet text for both s and d
+- Include every daf you can find in the document
+- Output pure JSON only`;
+
+// Attempts to recover a usable {tractate, hebrew, chapters, dafim:[...]}
+// object out of a JSON string that failed to parse — typically because
+// the AI response was cut off mid-array (hit max_tokens) or has a stray
+// formatting error somewhere in the middle. Strategy: pull out tractate/
+// hebrew via regex, then scan the "dafim" array text and JSON.parse each
+// top-level {...} object individually, keeping only the ones that parse
+// cleanly and dropping a trailing incomplete object.
+function salvagePartialJson(text){
+  try{
+    const tractateMatch=text.match(/"tractate"\s*:\s*"([^"]*)"/);
+    const hebrewMatch=text.match(/"hebrew"\s*:\s*"([^"]*)"/);
+    // Find the TOP-LEVEL "dafim" array specifically — chapters also have
+    // their own nested "dafim":[2,3,4] number arrays, so we must match
+    // the one followed by an object, "dafim":[{ ... not just any "dafim".
+    const dafimKeyMatch=text.match(/"dafim"\s*:\s*\[\s*\{/);
+    if(!dafimKeyMatch) return null;
+    const arrStart=dafimKeyMatch.index+dafimKeyMatch[0].indexOf('[');
+
+    const dafim=[];
+    let i=arrStart+1;
+    while(i<text.length){
+      // skip whitespace/commas
+      while(i<text.length && /[\s,]/.test(text[i])) i++;
+      if(text[i]===']'||i>=text.length) break;
+      if(text[i]!=='{'){ i++; continue; }
+      // find matching closing brace for this object, respecting strings
+      let depth=0,j=i,inStr=false,esc=false;
+      for(;j<text.length;j++){
+        const c=text[j];
+        if(inStr){
+          if(esc) esc=false;
+          else if(c==='\\') esc=true;
+          else if(c==='"') inStr=false;
+        } else {
+          if(c==='"') inStr=true;
+          else if(c==='{') depth++;
+          else if(c==='}'){ depth--; if(depth===0){ j++; break; } }
+        }
+      }
+      if(depth!==0) break; // unterminated — this is the truncated tail, stop here
+      const objText=text.slice(i,j);
+      try{
+        const obj=JSON.parse(objText);
+        if(obj && typeof obj.n!=='undefined') dafim.push(obj);
+      } catch(e){ /* skip malformed individual daf, keep going */ }
+      i=j;
+    }
+    if(!dafim.length) return null;
+
+    let chapters=null;
+    const chMatch=text.match(/"chapters"\s*:\s*(\[[\s\S]*?\])\s*,\s*"dafim"/);
+    if(chMatch){ try{ chapters=JSON.parse(chMatch[1]); }catch(e){ chapters=null; } }
+
+    return {
+      tractate:tractateMatch?tractateMatch[1]:'Unknown',
+      hebrew:hebrewMatch?hebrewMatch[1]:'',
+      chapters:chapters||[{name:tractateMatch?tractateMatch[1]:'Unknown',dafim:dafim.map(d=>d.n)}],
+      dafim
+    };
+  } catch(e){ return null; }
+}
+
+function extractOpenAIResponseText(data){
+  if(typeof data?.output_text==='string' && data.output_text.trim()) return data.output_text;
+  const out=[];
+  (data?.output||[]).forEach(item=>{
+    (item?.content||[]).forEach(part=>{
+      if(part?.type==='output_text' && part?.text) out.push(part.text);
+      if(part?.type==='text' && part?.text) out.push(part.text);
+    });
+  });
+  return out.join('\n').trim();
+}
+
+async function parsePdfFile(file){
+  await parsePdfBlob(file, file.name, file.size);
+}
+
+// Convert a normal Google Drive "share" link into a direct-download link.
+// Handles the common share URL shapes:
+//   https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+//   https://drive.google.com/open?id=FILE_ID
+//   https://drive.google.com/uc?id=FILE_ID&export=download (already direct)
+function resolveDriveUrl(url){
+  const m1=url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+  if(m1) return `https://drive.google.com/uc?export=download&id=${m1[1]}`;
+  const m2=url.match(/[?&]id=([^&]+)/);
+  if(m2 && url.includes('drive.google.com')) return `https://drive.google.com/uc?export=download&id=${m2[1]}`;
+  return url; // not a recognizable Drive link — use as-is (direct PDF URL)
+}
+
+async function fetchPdfLink(url){
+  const isLocal=['localhost','127.0.0.1','::1'].includes(location.hostname);
+  const proxied='/fetch-pdf?url='+encodeURIComponent(url);
+  if(isLocal){
+    const resp=await fetch(proxied);
+    if(resp.ok) return resp;
+  }
+  try{
+    return await fetch(url);
+  } catch(e){
+    if(!isLocal) throw e;
+    return fetch(proxied);
+  }
+}
+
+async function parsePdfFromUrl(){
+  const input=document.getElementById('pdfUrlInput');
+  const raw=(input?.value||'').trim();
+  if(!raw){showToast('Paste a PDF or Google Drive link first');return;}
+
+  const ant=ls('anthropicKey','');
+  const oai=ls('openaiKey','');
+  if(!ant&&!oai){showToast('Add an API key in Settings → AI Keys first');return;}
+
+  showPdfStep(2);
+  document.getElementById('pdfLog').innerHTML='';
+  setPdfProgress(3,'Fetching from link…');
+
+  const isDrive=raw.includes('drive.google.com');
+  const fetchUrl=isDrive?resolveDriveUrl(raw):raw;
+  pdfLog(`Fetching: ${fetchUrl}`);
+
+  let blob;
+  try{
+    const resp=await fetchPdfLink(fetchUrl);
+    if(!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+    const ct=resp.headers.get('content-type')||'';
+    blob=await resp.blob();
+    if(blob.size<2000 && !ct.includes('pdf')){
+      // Likely a Google Drive "can't scan for viruses, confirm download"
+      // HTML page rather than the actual file — common for larger files.
+      const text=await blob.text().catch(()=>'');
+      const confirmMatch=text.match(/confirm=([0-9A-Za-z_-]+)/);
+      if(isDrive && confirmMatch){
+        pdfLog('Large file — retrying with Drive confirm token…');
+        const idMatch=fetchUrl.match(/id=([^&]+)/);
+        const retryUrl=`https://drive.google.com/uc?export=download&confirm=${confirmMatch[1]}&id=${idMatch?idMatch[1]:''}`;
+        const resp2=await fetchPdfLink(retryUrl);
+        if(!resp2.ok) throw new Error(`HTTP ${resp2.status} ${resp2.statusText}`);
+        blob=await resp2.blob();
+      } else {
+        throw new Error('The link did not return a PDF file. For Google Drive, make sure sharing is set to "Anyone with the link can view".');
+      }
+    }
+  } catch(e){
+    showPdfStep(4);
+    document.getElementById('pdfErrorMsg').innerHTML=
+      `Could not fetch the file from that link: ${e.message}<br><br>`+
+      `If this is a Google Drive link, double-check it's shared as "Anyone with the link". `+
+      `Some sites also block direct fetches from other domains (CORS) — if so, download the PDF yourself and use the upload box instead.`;
+    return;
+  }
+
+  const filename=raw.split('/').pop()?.split('?')[0]||'document.pdf';
+  await parsePdfBlob(blob, filename, blob.size);
+}
+
+async function parsePdfBlob(file,name,size){
+  const ant=ls('anthropicKey','');
+  const oai=ls('openaiKey','');
+  if(!ant&&!oai){showToast('Add an API key in Settings → AI Keys first');return;}
+
+  showPdfStep(2);
+  setPdfProgress(5,'Reading PDF…');
+  pdfLog(`File: ${name} (${(size/1024).toFixed(0)} KB)`);
+
+  // Read as base64
+  let b64;
+  try{
+    b64=await new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=e=>res(e.target.result.split(',')[1]);
+      r.onerror=rej;
+      r.readAsDataURL(file);
+    });
+  } catch(e){
+    showPdfStep(4);
+    document.getElementById('pdfErrorMsg').textContent='Could not read file: '+e.message;
+    return;
+  }
+
+  const tractateOverride=(document.getElementById('pdfTractateOverride')?.value||'').trim();
+  const fullPrompt=tractateOverride?PDF_PROMPT+`\n\nNote: The tractate name is "${tractateOverride}".`:PDF_PROMPT;
+
+  pdfLog('Sending to AI…');
+  setPdfProgress(15,'Sending PDF to AI…');
+
+  try{
+    let responseText='';
+
+    if(ant){
+      // Anthropic — native PDF support via document block
+      pdfLog('Using Anthropic Claude (native PDF reading)…');
+      setPdfProgress(25,'Claude is reading the PDF…');
+      const resp=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'anthropic-version':'2023-06-01',
+          'x-api-key':ant,
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body:JSON.stringify({
+          model:'claude-opus-4-6',
+          max_tokens:64000,
+          messages:[{
+            role:'user',
+            content:[
+              {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
+              {type:'text',text:fullPrompt}
+            ]
+          }]
+        })
+      });
+      if(!resp.ok){
+        const err=await resp.json().catch(()=>({}));
+        // Try smaller model if too large
+        if(resp.status===400||resp.status===413){
+          pdfLog('File too large for single call, trying claude-sonnet…');
+          const resp2=await fetch('https://api.anthropic.com/v1/messages',{
+            method:'POST',
+            headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','x-api-key':ant,'anthropic-dangerous-direct-browser-access':'true'},
+            body:JSON.stringify({
+              model:'claude-sonnet-4-6',
+              max_tokens:64000,
+              messages:[{role:'user',content:[
+                {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
+                {type:'text',text:fullPrompt}
+              ]}]
+            })
+          });
+          if(!resp2.ok) throw new Error(`Anthropic error: ${(await resp2.json().catch(()=>({}))).error?.message||resp2.statusText}`);
+          const d2=await resp2.json();
+          responseText=d2.content?.[0]?.text||'';
+          if(d2.stop_reason==='max_tokens') pdfLog('⚠ Response was cut off — tractate may be too long for one pass. Consider splitting the PDF.');
+        } else {
+          throw new Error(`Anthropic error ${resp.status}: ${err.error?.message||resp.statusText}`);
+        }
+      } else {
+        const data=await resp.json();
+        responseText=data.content?.[0]?.text||'';
+        if(data.stop_reason==='max_tokens') pdfLog('⚠ Response was cut off — tractate may be too long for one pass. Consider splitting the PDF.');
+      }
+
+    } else if(oai){
+      // OpenAI — upload file, then send it to Responses API as input_file
+      pdfLog('Using OpenAI (uploading PDF as file)…');
+      setPdfProgress(20,'Uploading PDF to OpenAI…');
+
+      // Step 1: Upload the file
+      const formData=new FormData();
+      formData.append('file',file,'tractate.pdf');
+      formData.append('purpose','assistants');
+      const uploadResp=await fetch('https://api.openai.com/v1/files',{
+        method:'POST',
+        headers:{'Authorization':'Bearer '+oai},
+        body:formData
+      });
+      if(!uploadResp.ok){
+        const e=await uploadResp.json().catch(()=>({}));
+        throw new Error(`OpenAI file upload failed: ${e.error?.message||uploadResp.statusText}`);
+      }
+      const uploadData=await uploadResp.json();
+      const fileId=uploadData.id;
+      pdfLog(`File uploaded: ${fileId}`);
+      setPdfProgress(40,'OpenAI processing PDF…');
+
+      // Step 2: Ask model to extract structured JSON from the PDF
+      const resp=await fetch('https://api.openai.com/v1/responses',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+oai},
+        body:JSON.stringify({
+          model:'gpt-4.1',
+          max_output_tokens:14000,
+          input:[{
+            role:'user',
+            content:[
+              {type:'input_text',text:fullPrompt},
+              {type:'input_file',file_id:fileId}
+            ]
+          }]
+        })
+      });
+
+      // Clean up the file after
+      fetch(`https://api.openai.com/v1/files/${fileId}`,{method:'DELETE',headers:{'Authorization':'Bearer '+oai}}).catch(()=>{});
+
+      if(!resp.ok){
+        const e=await resp.json().catch(()=>({}));
+        throw new Error(`OpenAI error: ${e.error?.message||resp.statusText}. Try Anthropic key (sk-ant-) for stronger PDF support.`);
+      }
+      const data=await resp.json();
+      responseText=extractOpenAIResponseText(data);
+      if(!responseText){
+        throw new Error('OpenAI returned no text output for this PDF.');
+      }
+    }
+
+    setPdfProgress(80,'Parsing response…');
+    pdfLog('Response received, extracting JSON…');
+
+    // Robust JSON extraction
+    let cleaned=responseText.trim();
+    // Remove markdown fences
+    cleaned=cleaned.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'').trim();
+    // Find outermost JSON object
+    const start=cleaned.indexOf('{');
+    let end=cleaned.lastIndexOf('}');
+    if(start===-1){
+      throw new Error(`No JSON object found in response. Got: ${cleaned.substring(0,300)}…`);
+    }
+    cleaned=cleaned.slice(start,end===-1?undefined:end+1);
+
+    let parsed;
+    try{ parsed=JSON.parse(cleaned); }
+    catch(je){
+      // Try to fix common trailing-comma issues first
+      try{
+        const fixed=cleaned.replace(/,\s*}/g,'}').replace(/,\s*]/g,']');
+        parsed=JSON.parse(fixed);
+      } catch(je2){
+        // Likely truncated mid-response (hit max_tokens). Salvage whatever
+        // complete top-level fields and complete daf objects we can find,
+        // rather than failing the whole import.
+        pdfLog('⚠ JSON was malformed, attempting to salvage partial data…');
+        parsed=salvagePartialJson(cleaned);
+        if(!parsed) throw new Error(`Could not parse or repair JSON response: ${je.message}\n\nThis usually means the AI response was cut off (tractate too large) or the PDF wasn't a Zichru-format booklet. Try splitting the PDF into smaller sections, or use the "Download JSON" / raw response below to fix manually.`);
+        pdfLog(`Salvaged ${parsed.dafim.length} complete dafim out of the response (some may be missing from the end).`);
+      }
+    }
+
+    if(!parsed.dafim?.length) throw new Error('No dafim found. Is this a Zichru booklet PDF?');
+
+    _pdfExtractedData=parsed;
+    setPdfProgress(100,'Done!');
+    pdfLog(`Extracted ${parsed.dafim.length} dafim from ${parsed.tractate}`);
+
+    showPdfStep(3);
+    document.getElementById('pdfDoneTitle').textContent=`${parsed.tractate} — ${parsed.dafim.length} dafim extracted`;
+    document.getElementById('pdfDoneSub').textContent='Review below, then click Import.';
+    const preview=parsed.dafim.slice(0,4).map(df=>
+      `Daf ${df.n} (${df.sh}) — ${df.sw}\n  1. ${df.pts?.[0]?.ti||''}\n  2. ${df.pts?.[1]?.ti||''}\n  3. ${df.pts?.[2]?.ti||''}`
+    ).join('\n\n')+(parsed.dafim.length>4?`\n\n…and ${parsed.dafim.length-4} more`:'');
+    document.getElementById('pdfPreview').textContent=preview;
+
+  } catch(err){
+    pdfLog('Error: '+err.message);
+    showPdfStep(4);
+    document.getElementById('pdfErrorMsg').innerHTML=err.message.replace(/\n/g,'<br>');
+  }
+}
+
+function confirmPdfImport(){
+  if(!_pdfExtractedData){showToast('No data to import');return;}
+  importTractate(_pdfExtractedData);
+  const count=_pdfExtractedData.dafim.length;
+  document.getElementById('pdfImportFeedback').innerHTML=
+    `<span style="color:var(--green)">Imported ${count} dafim from ${_pdfExtractedData.tractate}. Go to Learned Pages tab to mark what you've studied.</span>`;
+  _pdfExtractedData=null;
+  if(_pdfQueue.length){
+    document.getElementById('pdfImportFeedback').innerHTML+=`<br><span style="color:var(--muted)">Processing next queued PDF (${_pdfQueue.length} remaining)…</span>`;
+    processNextQueuedPdf();
+  } else {
+    setTimeout(()=>{
+      document.querySelectorAll('.lib-tab').forEach((t,i)=>{t.classList.toggle('on',i===0);});
+      libTab('learned',document.querySelector('.lib-tab'));
+    },2000);
+  }
+}
+function downloadPdfJson(){
+  if(!_pdfExtractedData)return;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(_pdfExtractedData,null,2)],{type:'application/json'}));
+  a.download=`zichru-${(_pdfExtractedData.tractate||'tractate').toLowerCase().replace(/\s+/g,'-')}.json`;
+  a.click();showToast('JSON downloaded');
+}
+function resetPdfImport(){
+  _pdfExtractedData=null;
+  _pdfQueue=[];
+  document.getElementById('pdfLog').innerHTML='';
+  document.getElementById('pdfImportFeedback').innerHTML='';
+  const ov=document.getElementById('pdfTractateOverride');if(ov)ov.value='';
+  const uv=document.getElementById('pdfUrlInput');if(uv)uv.value='';
+  showPdfStep(1);
+}
+
+/* ════════════════════ TOAST ════════════════════ */
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2400);}
+
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden' && _currentUser && _fbDb && _cloudSyncDirty && !_cloudSyncInFlight){
+    syncToCloud(true);
+  }
+});
+
+/* ════════════════════ INIT ════════════════════ */
+loadCustomDafim();
+initFirebase();
+renderHome();
+renderSettings();
+</script>
+</body>
+</html>

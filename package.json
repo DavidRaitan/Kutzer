@@ -1,0 +1,14 @@
+{
+  "name": "zichru-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Zichru — Talmud Mastery (single-file web app + local dev server)",
+  "scripts": {
+    "start": "node server.js",
+    "login:firebase": "npx firebase-tools login",
+    "serve": "npx firebase-tools serve --only hosting --project tracking-app-0001",
+    "deploy": "npx firebase-tools deploy --only hosting,firestore:rules --project tracking-app-0001",
+    "deploy:hosting": "npx firebase-tools deploy --only hosting --project tracking-app-0001",
+    "deploy:rules": "npx firebase-tools deploy --only firestore:rules --project tracking-app-0001"
+  }
+}
