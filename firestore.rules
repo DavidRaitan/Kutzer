@@ -2,13 +2,37 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Shared tractates: anyone can read. Any signed-in user can publish a new
+    // tractate, but only its publisher (updatedBy.uid) can change or delete it.
     match /tractates/{tractateId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow create: if signedIn() && validTractate();
+      allow update: if signedIn() && resource.data.updatedBy.uid == request.auth.uid && validTractate();
+      allow delete: if signedIn() && resource.data.updatedBy.uid == request.auth.uid;
 
+      function validTractate() {
+        return request.resource.data.updatedBy.uid == request.auth.uid
+          && !('email' in request.resource.data.updatedBy)
+          && request.resource.data.tractate is string
+          && request.resource.data.tractate.size() > 0
+          && request.resource.data.tractate.size() <= 80;
+      }
+
+      // Each daf is stamped with its publisher. The app only loads dafim whose
+      // publisherUid matches the tractate's publisher, so dafim someone else
+      // adds are ignored. Unstamped legacy dafim can be claimed by the next publish.
       match /dafim/{dafId} {
         allow read: if true;
-        allow write: if request.auth != null;
+        allow create: if signedIn() && request.resource.data.publisherUid == request.auth.uid;
+        allow update: if signedIn()
+          && request.resource.data.publisherUid == request.auth.uid
+          && resource.data.get('publisherUid', request.auth.uid) == request.auth.uid;
+        allow delete: if signedIn() && resource.data.get('publisherUid', null) == request.auth.uid;
       }
     }
 

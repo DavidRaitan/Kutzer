@@ -868,7 +868,25 @@ const D_RAW={
 };
 
 const dafKey=(t,n)=>`${t}::${n}`;
-const normTractate=t=>String(t||'').trim();
+const normTractate=t=>String(t||'').replace(/[\u0000-\u001f<>"\\`]/g,'').trim().slice(0,80);
+// Tractate data can come from the shared (multi-user) cloud collection, so it
+// is untrusted: never interpolate it raw into HTML. esc() for text/attributes,
+// jsq() for a string argument inside an inline on* handler, tid() for DOM ids.
+const esc=v=>escapeHtml(v);
+const jsq=v=>escapeHtml(JSON.stringify(String(v??'')));
+const tid=t=>String(t||'').replace(/[^A-Za-z0-9]/g,c=>'_'+c.charCodeAt(0).toString(16));
+const str=v=>typeof v==='string'?v:(v==null?'':String(v));
+function cleanDaf(e){
+  if(!e||typeof e!=='object') return null;
+  const n=Number(e.n),t=normTractate(e.t);
+  if(!t||!Number.isInteger(n)||n<1||n>999) return null;
+  const pts=(Array.isArray(e.pts)?e.pts:[]).filter(p=>p&&typeof p==='object')
+    .map(p=>({ti:str(p.ti),s:str(p.s),d:str(p.d||p.s||p.ti)}));
+  if(!pts.length) return null;
+  const out={n,t,sw:str(e.sw),sh:str(e.sh)||h(n),st:str(e.st),pts};
+  if(typeof e.img==='string'&&/^https:\/\//i.test(e.img)) out.img=e.img;
+  return out;
+}
 const getAllDafim=()=>Object.values(D);
 const getDafsForTractate=t=>getAllDafim().filter(df=>df.t===t);
 const getTractates=()=>[...new Set([...Object.keys(CHAPS),...getAllDafim().map(df=>df.t)])].filter(Boolean).sort();
@@ -881,8 +899,9 @@ const getDaf=(t,n)=>{
   return getAllDafim().find(df=>df.n===nNum&&(!t||df.t===t))||null;
 };
 const upsertDaf=entry=>{
-  if(!entry||!entry.t||!entry.n) return;
-  D[dafKey(entry.t,entry.n)]=entry;
+  const c=cleanDaf(entry);
+  if(c) D[dafKey(c.t,c.n)]=c;
+  return c;
 };
 const getTractateDafNumbers=t=>{
   const fromChaps=(CHAPS[t]||[]).flatMap(ch=>ch.dafim||[]);
@@ -911,7 +930,8 @@ function updateM(t,n,result,timeSec){
   // weighted score: correct=1, partial=0.5, wrong=0
   // time bonus: <3s=+0.3, 3-7s=+0, >7s=-0.1
   let pts=result==='correct'?1:result==='partial'?0.5:0;
-  let timeBonus=timeSec<3?0.3:timeSec>7?-0.1:0;
+  // speed only adjusts credit for answers that earned some; a fast wrong answer stays 0
+  let timeBonus=pts===0?0:timeSec<3?0.3:timeSec>7?-0.1:0;
   m.cor=Math.min(m.att,(m.cor||0)+Math.max(0,Math.min(1,pts+timeBonus)));
   // recalculate score 1-5 (5=worst, 1=best) after 2+ attempts
   if(m.att>=2){
@@ -950,12 +970,9 @@ function chooseDifficulty(daf,allowedModes){
   // find closest allowed
   const order=['locate-mc','locate-type','recall-mc','recall-type-1','recall-type-all'];
   let idx=order.indexOf(natural);
-  while(idx<order.length){
-    const candidate=order[idx];
-    const mapped=map[candidate];
-    if(allowed.includes(mapped||candidate)) return candidate;
-    idx++;
-  }
+  // nearest allowed level at or above the natural one, else the nearest below
+  for(let i=idx;i<order.length;i++) if(allowed.includes(map[order[i]])) return order[i];
+  for(let i=idx-1;i>=0;i--) if(allowed.includes(map[order[i]])) return order[i];
   return 'locate-mc';
 }
 
@@ -1000,8 +1017,9 @@ function renderHome(){
   document.getElementById('greetName').textContent=ls('userName','Chavrusa');
   const dafList=getAllDafim();
   const {sp,selected,tractates}=getStudyProgressState();
-  let d1=0,d2=0,d3=0,d4=0,d5=0,studied=0;
-  dafList.forEach(df=>{const m=getM(df.t,df.n);if(m.att>0){studied++;[d1,d2,d3,d4,d5][[1,2,3,4,5].indexOf(m.score)]++;}});
+  const dist=[0,0,0,0,0];let studied=0;
+  dafList.forEach(df=>{const m=getM(df.t,df.n);if(m.att>0){studied++;dist[m.score-1]++;}});
+  const [d1,d2,,,d5]=dist;
   const total=dafList.length;
   document.getElementById('homeStats').innerHTML=`
     <div class="stat-box"><span class="n">${studied}/${total}</span><span class="l">Dafim studied</span></div>
@@ -1017,7 +1035,7 @@ function renderHome(){
     const currentOptions=[...tkTractate.options].map(o=>o.value).join('|');
     const expectedOptions=tractates.join('|');
     if(currentOptions!==expectedOptions){
-      tkTractate.innerHTML=tractates.map(t=>`<option value="${t}">${t}</option>`).join('');
+      tkTractate.innerHTML=tractates.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
     }
     tkTractate.value=selected;
     if(!tkTractate.dataset.bound){
@@ -1036,7 +1054,7 @@ function renderHome(){
   if(tkDaf){
     tkDaf.innerHTML=tractateDafs.map(n=>{
       const df=getDaf(selected,n);
-      return `<option value="${n}">Daf ${n} (${h(n)})${df?.sw?` — ${df.sw}`:''}</option>`;
+      return `<option value="${n}">Daf ${n} (${h(n)})${df?.sw?` — ${esc(df.sw)}`:''}</option>`;
     }).join('');
     tkDaf.value=String(cur);
   }
@@ -1054,7 +1072,7 @@ function renderHome(){
       const df=getDaf(r.t,r.n);if(!df)return'';
       const m=getM(r.t,r.n);
       const cols=['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--c5)'];
-      return `<div class="rpill" onclick="quizSingle('${r.t}',${r.n})"><div class="m-dot" style="background:${cols[m.score-1]}"></div>${df.t} ${h(r.n)} ${df.sw}</div>`;
+      return `<div class="rpill" onclick="quizSingle(${jsq(df.t)},${df.n})"><div class="m-dot" style="background:${cols[m.score-1]}"></div>${esc(df.t)} ${h(df.n)} ${esc(df.sw)}</div>`;
     }).join('');
   }
 
@@ -1099,17 +1117,18 @@ function renderBrowse(){
       const chapters=(CHAPS[t]&&CHAPS[t].length)?CHAPS[t]:[{name:t,dafim:tractateList.map(df=>df.n)}];
       const rendered=new Set();
       chapters.forEach(ch=>{
-        const cds=tractateList.filter(df=>ch.dafim.includes(df.n));
+        // a daf that spans two chapters is shown once, under the first
+        const cds=tractateList.filter(df=>ch.dafim.includes(df.n)&&!rendered.has(df.n));
         if(!cds.length)return;
         const chEl=document.createElement('div');chEl.className='ch-bar';
-        chEl.innerHTML=`<span>${t} — ${ch.name}</span><span>${cds.length} dafim</span>`;
+        chEl.innerHTML=`<span>${esc(t)} — ${esc(ch.name)}</span><span>${cds.length} dafim</span>`;
         list.appendChild(chEl);
         cds.forEach(df=>{rendered.add(df.n);list.appendChild(buildDrow(df));});
       });
       const remaining=tractateList.filter(df=>!rendered.has(df.n));
       if(remaining.length){
         const remEl=document.createElement('div');remEl.className='ch-bar';
-        remEl.innerHTML=`<span>${t} — Additional Dafim</span><span>${remaining.length} dafim</span>`;
+        remEl.innerHTML=`<span>${esc(t)} — Additional Dafim</span><span>${remaining.length} dafim</span>`;
         list.appendChild(remEl);
         remaining.forEach(df=>list.appendChild(buildDrow(df)));
       }
@@ -1127,78 +1146,78 @@ function buildDrow(df){
   const mcls=['mc1','mc2','mc3','mc4','mc5'];
   const mlbl=['💎 Diamond','🥇 Gold','🥈 Silver','🥉 Bronze','📖 Learning'];
   const div=document.createElement('div');
-  div.className='drow';div.id=`dr_${df.t}_${df.n}`;
+  div.className='drow';div.id=`dr_${tid(df.t)}_${df.n}`;
   const mBadge=m.att>0?`<span class="mbadge ${mcls[m.score-1]}">${mlbl[m.score-1]}</span>`:'<span style="color:var(--border);font-size:.72rem;">Not studied</span>';
   div.innerHTML=`
-    <div class="drow-hdr" onclick="toggleDrow('${df.t}',${df.n})">
+    <div class="drow-hdr" onclick="toggleDrow(${jsq(df.t)},${df.n})">
       <div class="dnb">${h(df.n)}</div>
       <div class="drow-info">
-        <div class="drow-title">Daf ${df.n} — ${df.sw} / ${df.sh}</div>
-        <div class="drow-meta">${mBadge}<span class="spill">Siman: ${df.sw}</span>${m.att>0?`<span>${m.att} attempts</span>`:''}</div>
+        <div class="drow-title">Daf ${df.n} — ${esc(df.sw)} / ${esc(df.sh)}</div>
+        <div class="drow-meta">${mBadge}<span class="spill">Siman: ${esc(df.sw)}</span>${m.att>0?`<span>${m.att} attempts</span>`:''}</div>
       </div>
       <div class="drow-acts" onclick="event.stopPropagation()">
-        <button class="ibtn${bk==='gold'?' gold-on':''}" title="Gold bookmark" onclick="toggleBK('${df.t}',${df.n},'gold',this)">⭐</button>
-        <button class="ibtn${bk==='silver'?' silver-on':''}" title="Silver bookmark" onclick="toggleBK('${df.t}',${df.n},'silver',this)">🥈</button>
-        <button class="ibtn" title="Quiz this daf" onclick="quizSingle('${df.t}',${df.n})">🎯</button>
+        <button class="ibtn${bk==='gold'?' gold-on':''}" title="Gold bookmark" onclick="toggleBK(${jsq(df.t)},${df.n},'gold',this)">⭐</button>
+        <button class="ibtn${bk==='silver'?' silver-on':''}" title="Silver bookmark" onclick="toggleBK(${jsq(df.t)},${df.n},'silver',this)">🥈</button>
+        <button class="ibtn" title="Quiz this daf" onclick="quizSingle(${jsq(df.t)},${df.n})">🎯</button>
       </div>
     </div>
-    <div class="drow-detail" id="det_${df.t}_${df.n}">${buildDetail(df,cp)}</div>
+    <div class="drow-detail" id="det_${tid(df.t)}_${df.n}">${buildDetail(df,cp)}</div>
   `;
   return div;
 }
 
 function buildDetail(df,cp){
   const sefariaSlug=encodeURIComponent((df.t||'Berakhot').replace(/\s+/g,'_'));
-  let html=`<div class="story-box"><strong>Siman Story</strong>${df.st}</div>`;
+  let html=`<div class="story-box"><strong>Siman Story</strong>${esc(df.st)}</div>`;
   df.pts.forEach((p,i)=>{
-    html+=`<div class="pt-wrap" id="pt_${df.t}_${df.n}_${i}">
-      <div class="pt-hdr" onclick="togglePt('${df.t}',${df.n},${i})">
+    html+=`<div class="pt-wrap" id="pt_${tid(df.t)}_${df.n}_${i}">
+      <div class="pt-hdr" onclick="togglePt(${jsq(df.t)},${df.n},${i})">
         <div class="ptn">${i+1}</div>
-        <div class="pt-title">${p.ti}</div>
+        <div class="pt-title">${esc(p.ti)}</div>
         <span class="pt-arr">▶</span>
       </div>
       <div class="pt-body">
-        <div style="color:var(--muted);margin-bottom:.35rem;">${p.s}</div>
-        <div>${p.d}</div>
+        <div style="color:var(--muted);margin-bottom:.35rem;">${esc(p.s)}</div>
+        <div>${esc(p.d)}</div>
       </div>
     </div>`;
   });
   if(cp.length){
     cp.forEach((note,i)=>{
-      html+=`<div class="note-box">✏️ <strong>Your note:</strong> ${note}<button class="del-note" onclick="delNote('${df.t}',${df.n},${i})">✕</button></div>`;
+      html+=`<div class="note-box">✏️ <strong>Your note:</strong> ${esc(note)}<button class="del-note" onclick="delNote(${jsq(df.t)},${df.n},${i})">✕</button></div>`;
     });
   }
   html+=`<div class="add-note-area">
-    <textarea id="nn_${df.t}_${df.n}" placeholder="Add your own note or 4th point…"></textarea>
+    <textarea id="nn_${tid(df.t)}_${df.n}" placeholder="Add your own note or 4th point…"></textarea>
     <div style="display:flex;gap:.5rem;align-items:center;margin-top:.4rem;">
-      <button class="btn btn-ghost btn-sm" onclick="saveNote('${df.t}',${df.n})">Save Note</button>
+      <button class="btn btn-ghost btn-sm" onclick="saveNote(${jsq(df.t)},${df.n})">Save Note</button>
       <a class="sefaria-link" href="https://www.sefaria.org/${sefariaSlug}.${df.n}a?lang=en" target="_blank">📚 Sefaria</a>
     </div>
-    <div class="img-slot" id="imgslot_${df.t}_${df.n}">${df.img?`<img src="${df.img}" alt="Siman image">`:' 📷 Siman image will appear here when images are added'}</div>
+    <div class="img-slot" id="imgslot_${tid(df.t)}_${df.n}">${df.img?`<img src="${esc(df.img)}" alt="Siman image">`:' 📷 Siman image will appear here when images are added'}</div>
   </div>`;
   return html;
 }
 
-function toggleDrow(t,n){const el=document.getElementById(`dr_${t}_${n}`);el.classList.toggle('open');logA(t,n);}
-function togglePt(t,n,i){document.getElementById(`pt_${t}_${n}_${i}`).classList.toggle('open');}
+function toggleDrow(t,n){const el=document.getElementById(`dr_${tid(t)}_${n}`);el.classList.toggle('open');logA(t,n);}
+function togglePt(t,n,i){document.getElementById(`pt_${tid(t)}_${n}_${i}`).classList.toggle('open');}
 function toggleBK(t,n,type,btn){
   const cur=getBK(t,n);const nv=cur===type?null:type;setBK(t,n,nv);
   const df=getDaf(t,n);if(!df)return;
-  const row=document.getElementById(`dr_${t}_${n}`);
+  const row=document.getElementById(`dr_${tid(t)}_${n}`);
   if(row){const nr=buildDrow(df);if(row.classList.contains('open'))nr.classList.add('open');row.replaceWith(nr);}
   showToast(nv?`Marked as ${nv} ✓`:'Bookmark removed');
 }
 function saveNote(t,n){
-  const ta=document.getElementById(`nn_${t}_${n}`);if(!ta?.value.trim())return;
+  const ta=document.getElementById(`nn_${tid(t)}_${n}`);if(!ta?.value.trim())return;
   const cp=getCP(t,n);cp.push(ta.value.trim());setCP(t,n,cp);ta.value='';
   const df=getDaf(t,n);
-  const det=document.getElementById(`det_${t}_${n}`);if(det&&df)det.innerHTML=buildDetail(df,cp);
+  const det=document.getElementById(`det_${tid(t)}_${n}`);if(det&&df)det.innerHTML=buildDetail(df,cp);
   showToast('Note saved!');
 }
 function delNote(t,n,i){
   const cp=getCP(t,n);cp.splice(i,1);setCP(t,n,cp);
   const df=getDaf(t,n);
-  const det=document.getElementById(`det_${t}_${n}`);if(det&&df)det.innerHTML=buildDetail(df,cp);
+  const det=document.getElementById(`det_${tid(t)}_${n}`);if(det&&df)det.innerHTML=buildDetail(df,cp);
   showToast('Note deleted');
 }
 
@@ -1214,15 +1233,16 @@ function toggleMpill(el){
   if(!document.querySelectorAll('.mpill.on').length)el.classList.add('on');
 }
 
-function weightedPool(list){
-  // Only quiz learned dafim; if none marked, use all
+// Learned dafim per tractate; a tractate with nothing marked contributes all its dafim
+function learnedOrAll(list){
   const lp=getLearned();
   const filtered=list.filter(df=>{
     const tLearned=lp[df.t]||{};
-    const anyLearned=Object.keys(tLearned).length>0;
-    return !anyLearned || tLearned[df.n];
+    return !Object.keys(tLearned).length || tLearned[df.n];
   });
-  const pool=filtered.length?filtered:list;
+  return filtered.length?filtered:list;
+}
+function weightedPool(pool){
   const w=[];
   pool.forEach(df=>{
     const m=getM(df.t,df.n);
@@ -1257,7 +1277,7 @@ function renderQuizSetup(){
   const prevSelected=qtr?[...qtr.selectedOptions].map(o=>o.value):[];
   const tractateSig=tractates.join('|');
   if(qtr&&qtr.dataset.sig!==tractateSig){
-    qtr.innerHTML=tractates.map(t=>`<option value="${t}">${t}</option>`).join('');
+    qtr.innerHTML=tractates.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
     [...qtr.options].forEach(o=>{o.selected=prevSelected.length?prevSelected.includes(o.value):true;});
     qtr.dataset.sig=tractateSig;
   }
@@ -1298,12 +1318,12 @@ function beginQuiz(){
 }
 function launchSmartQuiz(){
   goTo('quiz');
-  const sorted=weightedPool(getAllDafim());
+  const sorted=weightedPool(learnedOrAll(getAllDafim()));
   launchQueue(sorted.slice(0,10));
 }
 function launchWeakQuiz(){
   goTo('quiz');
-  const weak=getAllDafim().filter(df=>{const m=getM(df.t,df.n);return m.score>=4||m.att===0;});
+  const weak=learnedOrAll(getAllDafim()).filter(df=>{const m=getM(df.t,df.n);return m.score>=4||m.att===0;});
   if(!weak.length){showToast('No weak dafim yet — keep studying!');return;}
   launchQueue(weightedPool(weak).slice(0,10));
 }
@@ -1343,25 +1363,26 @@ function buildHintTexts(df,diff){
   const chapter=getChapterNameForDaf(df.t,df.n);
   const topic=(QS.queue[QS.cur].rp?.ti||'').trim();
   const firstWords=topic.split(/\s+/).slice(0,2).join(' ');
+  const story=esc(df.st.substring(0,80));
 
   if(singleTractate){
     return [
-      `Chapter: <strong>${chapter}</strong>`,
+      `Chapter: <strong>${esc(chapter)}</strong>`,
       sessionNums.length>1
         ?`This quiz session range: <strong>Daf ${minN}–${maxN}</strong>`
         :`Daf neighborhood: <strong>${Math.max(2,df.n-3)}–${df.n+3}</strong>`,
       diff.startsWith('locate')
-        ?`Topic starter: <strong>${firstWords||df.sw}</strong>`
-        :`Siman: <strong>${df.sw} / ${df.sh}</strong>`,
-      `Story: <em>${df.st.substring(0,80)}…</em>`
+        ?`Topic starter: <strong>${esc(firstWords||df.sw)}</strong>`
+        :`Siman: <strong>${esc(df.sw)} / ${esc(df.sh)}</strong>`,
+      `Story: <em>${story}…</em>`
     ];
   }
 
   return [
-    `Tractate: <strong>${df.t}</strong>`,
-    `Chapter: <strong>${chapter}</strong>`,
-    `Siman: <strong>${df.sw} / ${df.sh}</strong>`,
-    `Story: <em>${df.st.substring(0,80)}…</em>`
+    `Tractate: <strong>${esc(df.t)}</strong>`,
+    `Chapter: <strong>${esc(chapter)}</strong>`,
+    `Siman: <strong>${esc(df.sw)} / ${esc(df.sh)}</strong>`,
+    `Story: <em>${story}…</em>`
   ];
 }
 
@@ -1451,12 +1472,12 @@ function loadQ(){
   document.getElementById('ansContent').innerHTML=df.pts.map((p,i)=>`
     <div class="arow">
       <div class="anum">${i+1}</div>
-      <div class="atext"><strong>${p.ti}</strong><br>${p.s}
+      <div class="atext"><strong>${esc(p.ti)}</strong><br>${esc(p.s)}
         <br><button class="expand-btn" onclick="toggleDetail(this)">▼ Full detail</button>
-        <div class="adetail">${p.d}</div>
+        <div class="adetail">${esc(p.d)}</div>
       </div>
     </div>`).join('');
-  document.getElementById('ansStory').innerHTML=`<strong>Siman Story</strong>${df.st}`;
+  document.getElementById('ansStory').innerHTML=`<strong>Siman Story</strong>${esc(df.st)}`;
   document.getElementById('ansStory').style.display=(diff==='locate-mc'||diff==='locate-type')?'block':'none';
 
   // hint text prep
@@ -1488,7 +1509,7 @@ function buildLocateMC(df){
   mc.innerHTML=opts.map(o=>`
     <div class="mc-opt" onclick="checkLocateMC(${o.n},${df.n},this)">
       <span class="mc-heb">${h(o.n)}</span>
-      <span class="mc-sub">${o.sw}</span>
+      <span class="mc-sub">${esc(o.sw)}</span>
     </div>`).join('');
 }
 
@@ -1506,8 +1527,8 @@ function buildRecallMC(df){
   const opts=[rp,...decoys].sort(()=>Math.random()-.5);
   const mc=document.getElementById('mcWrap');mc.style.display='grid';
   mc.innerHTML=opts.map(p=>`
-    <div class="mc-opt" data-correct="${p.ti===rp.ti}" onclick="checkRecallMC(this,'${rp.ti}')">
-      <span class="mc-heb" style="font-size:.85rem;font-family:'DM Sans',sans-serif;">${p.ti}</span>
+    <div class="mc-opt" data-correct="${p.ti===rp.ti}" onclick="checkRecallMC(this)">
+      <span class="mc-heb" style="font-size:.85rem;font-family:'DM Sans',sans-serif;">${esc(p.ti)}</span>
     </div>`).join('');
 }
 
@@ -1541,7 +1562,7 @@ function checkLocateMC(chosen,correct,el){
   }
 }
 
-function checkRecallMC(el,correctTitle){
+function checkRecallMC(el){
   if(QS.answered)return;
   const elapsed=(Date.now()-QS.startTime)/1000;
   const isCorrect=el.dataset.correct==='true';
@@ -1647,19 +1668,19 @@ async function submitRecall(){
       const r=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
         body:JSON.stringify({model:'gpt-4o-mini',messages:[{role:'user',content:prompt}]})});
-      if(!r.ok) throw new Error('OpenAI error: '+(await r.json().catch(()=>({}))).error?.message||r.statusText);
+      if(!r.ok) throw new Error('OpenAI error: '+((await r.json().catch(()=>({}))).error?.message||r.statusText));
       const d=await r.json();aiText=d.choices?.[0]?.message?.content||'';
     } else {
       const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
         headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','x-api-key':key,'anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:400,messages:[{role:'user',content:prompt}]})});
-      if(!r.ok) throw new Error('Anthropic error: '+(await r.json().catch(()=>({}))).error?.message||r.statusText);
-      const d=await r.json();aiText=d.content?.[0]?.text||'';
+        body:JSON.stringify({model:'claude-sonnet-5',max_tokens:2000,output_config:{effort:'low'},messages:[{role:'user',content:prompt}]})});
+      if(!r.ok) throw new Error('Anthropic error: '+((await r.json().catch(()=>({}))).error?.message||r.statusText));
+      const d=await r.json();aiText=anthropicText(d);
     }
     const gradeMatch=aiText.match(/GRADE:(correct|partial|wrong)/i);
     const grade=gradeMatch?gradeMatch[1].toLowerCase():'partial';
     const displayText=aiText.replace(/GRADE:(correct|partial|wrong)/gi,'').trim();
-    document.getElementById('aiText').innerHTML=displayText.replace(/\n/g,'<br>');
+    document.getElementById('aiText').innerHTML=esc(displayText).replace(/\n/g,'<br>');
     registerResult(grade,elapsed);
     if(grade==='correct'){showCorrectFlash();if(QS.wrongAttempts===0) autoAdvance();else revealAnswer(false);}
     else{showWrongPulse();revealAnswer(true);}
@@ -1713,7 +1734,7 @@ function showHint(){
 }
 
 function escapeHtml(text){
-  return String(text||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  return String(text??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 }
 
 async function generateSmartHint(){
@@ -1764,7 +1785,8 @@ function skipQ(){
     QS.wrongAttempts=(QS.wrongAttempts||0)+1;
     registerResult('wrong',(Date.now()-QS.startTime)/1000);
     revealAnswer(true);
-    setTimeout(()=>{QS.cur++;loadQ();},1200);
+    clearTimeout(QS.autoTimer);
+    QS.autoTimer=setTimeout(()=>{QS.cur++;loadQ();},1200);
   } else {
     QS.cur++;loadQ();
   }
@@ -1797,7 +1819,7 @@ function showResults(){
   const ml=document.getElementById('missedList');
   const uniq=[...new Map(QS.missed.map(df=>[dafKey(df.t,df.n),df])).values()];
   ml.innerHTML=uniq.length?'<div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:.9rem 0 .4rem;">Review these dafim</div>'+
-    uniq.map(df=>`<div class="mrow"><div class="mdnb">${h(df.n)}</div><div><strong>${df.t} Daf ${df.n} — ${df.sw}</strong><br><span style="color:var(--muted);font-size:.78rem;">${df.pts.map(p=>p.ti).join(' · ')}</span></div></div>`).join(''):'' ;
+    uniq.map(df=>`<div class="mrow"><div class="mdnb">${h(df.n)}</div><div><strong>${esc(df.t)} Daf ${df.n} — ${esc(df.sw)}</strong><br><span style="color:var(--muted);font-size:.78rem;">${df.pts.map(p=>esc(p.ti)).join(' · ')}</span></div></div>`).join(''):'' ;
 }
 
 function retryMissed(){
@@ -1821,20 +1843,20 @@ function renderProgress(){
     const pct=Math.round(studied/(total||1)*100);
 
     const card=document.createElement('div');card.className='tp-card';
-    card.innerHTML=`<div class="tp-hdr"><div class="tp-name">${t}</div><span style="font-size:.8rem;color:var(--muted);">${studied}/${total} (${pct}%)</span></div>
+    card.innerHTML=`<div class="tp-hdr"><div class="tp-name">${esc(t)}</div><span style="font-size:.8rem;color:var(--muted);">${studied}/${total} (${pct}%)</span></div>
       <div class="mdist">${dist.map((c,i)=>`<div class="mseg" style="width:${total>0?c/total*100:0}%;background:${cols[i]};"></div>`).join('')}<div class="mseg" style="width:${total>0?(total-studied)/total*100:100}%;background:var(--border);"></div></div>
       <div style="display:flex;gap:.6rem;font-size:.76rem;flex-wrap:wrap;margin:.4rem 0 .6rem;">${dist.map((c,i)=>`<span style="color:${cols[i]}">${mlbls[i]}: ${c}</span>`).join('')}</div>
-      <div class="dmini-grid" id="dpgrid_${t}"></div>`;
+      <div class="dmini-grid"></div>`;
     el.appendChild(card);
 
-    const grid=card.querySelector(`#dpgrid_${t}`);
+    const grid=card.querySelector('.dmini-grid');
     dafList.forEach(df=>{
       const m=getM(df.t,df.n);const bk=getBK(df.t,df.n);
       const cls=m.att>0?mcls[m.score-1]:'un';
       const mini=document.createElement('div');mini.className=`dmini ${cls}`;
       mini.title=`${df.t} Daf ${df.n} — ${df.sw}${m.att>0?' | '+mlbls[m.score-1]+', '+m.att+' attempts':''}`;
       mini.textContent=h(df.n);
-      mini.onclick=()=>{goTo('browse');setTimeout(()=>{const r=document.getElementById(`dr_${df.t}_${df.n}`);if(r){r.classList.add('open');r.scrollIntoView({behavior:'smooth',block:'center'});}},300);};
+      mini.onclick=()=>{goTo('browse');setTimeout(()=>{const r=document.getElementById(`dr_${tid(df.t)}_${df.n}`);if(r){r.classList.add('open');r.scrollIntoView({behavior:'smooth',block:'center'});}},300);};
       if(bk){const dot=document.createElement('div');dot.className='bkdot';dot.style.background=bk==='gold'?'#FFD700':'#A0A0A0';mini.appendChild(dot);}
       grid.appendChild(mini);
     });
@@ -1847,7 +1869,7 @@ function renderProgress(){
       const chStudied=chDfs.filter(df=>getM(df.t,df.n).att>0).length;
       const chDist=[0,0,0,0,0];chDfs.forEach(df=>{const m=getM(df.t,df.n);if(m.att>0)chDist[m.score-1]++;});
       chapDiv.innerHTML+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:.35rem 0;border-bottom:1px solid var(--border);">
-        <span style="font-size:.78rem;color:var(--navy);font-weight:500;">${ch.name}</span>
+        <span style="font-size:.78rem;color:var(--navy);font-weight:500;">${esc(ch.name)}</span>
         <span style="font-size:.76rem;color:var(--muted);">${chStudied}/${chDfs.length} · ${chDist.map((c,i)=>c?`<span style="color:${cols[i]}">${c}</span>`:'').filter(Boolean).join(' ')}</span>
       </div>`;
     });
@@ -1861,14 +1883,8 @@ function renderProgress(){
 const getLearned=()=>ls('learnedPages',{});
 const setLearned=v=>lss('learnedPages',v);
 const isDafLearned=(t,n)=>{const lp=getLearned();return !!(lp[t]&&lp[t][n]);};
-// Only quiz dafim marked as learned (or all if none marked)
-function getLearnedDafList(t){
-  const lp=getLearned();
-  const allDafs=getDafsForTractate(t);
-  const learnedNums=Object.keys(lp[t]||{}).map(Number).filter(n=>lp[t][n]);
-  if(!learnedNums.length) return allDafs; // fallback: all dafim
-  return allDafs.filter(df=>learnedNums.includes(df.n));
-}
+let _rangeStart=null;
+document.addEventListener('mouseup',()=>{_rangeStart=null;});
 
 function renderLearnedPages(){
   const el=document.getElementById('libLearnedContent');el.innerHTML='';
@@ -1880,26 +1896,26 @@ function renderLearnedPages(){
     const div=document.createElement('div');div.className='lib-tractate';
     div.innerHTML=`
       <div class="lib-tract-hdr">
-        <div class="lib-tract-name">${t}</div>
+        <div class="lib-tract-name">${esc(t)}</div>
         <div class="lib-tract-meta">${learnedCount}/${allNums.length} dafim marked learned</div>
       </div>
       <div class="range-quick">
-        <button class="btn btn-ghost btn-sm" onclick="markRange('${t}','all')">Mark all</button>
-        <button class="btn btn-ghost btn-sm" onclick="markRange('${t}','none')">Clear all</button>
-        <button class="btn btn-ghost btn-sm" onclick="showRangePicker('${t}')">Mark range…</button>
+        <button class="btn btn-ghost btn-sm" onclick="markRange(${jsq(t)},'all')">Mark all</button>
+        <button class="btn btn-ghost btn-sm" onclick="markRange(${jsq(t)},'none')">Clear all</button>
+        <button class="btn btn-ghost btn-sm" onclick="showRangePicker(${jsq(t)})">Mark range…</button>
       </div>
-      <div id="rpicker_${t}" style="display:none;background:var(--parchment);border-radius:8px;padding:.6rem;margin-bottom:.5rem;">
+      <div id="rpicker_${tid(t)}" style="display:none;background:var(--parchment);border-radius:8px;padding:.6rem;margin-bottom:.5rem;">
         <span style="font-size:.78rem;color:var(--muted);">From daf:</span>
-        <select id="rfrom_${t}">${allNums.map(n=>`<option value="${n}">${n} (${h(n)})</option>`).join('')}</select>
+        <select id="rfrom_${tid(t)}">${allNums.map(n=>`<option value="${n}">${n} (${h(n)})</option>`).join('')}</select>
         <span style="font-size:.78rem;color:var(--muted);">to:</span>
-        <select id="rto_${t}">${allNums.map(n=>`<option value="${n}">${n} (${h(n)})</option>`).join('')}</select>
-        <button class="btn btn-navy btn-sm" onclick="applyRange('${t}')">Apply</button>
-        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('rpicker_${t}').style.display='none'">✕</button>
+        <select id="rto_${tid(t)}">${allNums.map(n=>`<option value="${n}">${n} (${h(n)})</option>`).join('')}</select>
+        <button class="btn btn-navy btn-sm" onclick="applyRange(${jsq(t)})">Apply</button>
+        <button class="btn btn-ghost btn-sm" onclick="this.parentElement.style.display='none'">✕</button>
       </div>
-      <div class="daf-toggle-grid" id="dtg_${t}"></div>
+      <div class="daf-toggle-grid"></div>
     `;
     el.appendChild(div);
-    const grid=div.querySelector(`#dtg_${t}`);
+    const grid=div.querySelector('.daf-toggle-grid');
     allNums.forEach(n=>{
       const btn=document.createElement('div');
       const learned=!!tLearned[n];
@@ -1920,8 +1936,7 @@ function renderLearnedPages(){
 function toggleLearnedDaf(t,n,btn){
   const lp=getLearned();
   if(!lp[t]) lp[t]={};
-  lp[t][n]=!lp[t][n];
-  if(!lp[t][n]) delete lp[t][n];
+  if(lp[t][n]) delete lp[t][n]; else lp[t][n]=true;
   setLearned(lp);
   const m=getM(t,n);
   btn.className='dtog'+(lp[t][n]?' learned':'')+(lp[t][n]&&m.score===1?' mastered':'');
@@ -1951,19 +1966,19 @@ function markRange(t,type){
 }
 
 function showRangePicker(t){
-  const el=document.getElementById(`rpicker_${t}`);
+  const el=document.getElementById(`rpicker_${tid(t)}`);
   el.style.display=el.style.display==='none'?'flex':'none';
   el.style.gap='.4rem';el.style.alignItems='center';el.style.flexWrap='wrap';
 }
 
 function applyRange(t){
-  const from=parseInt(document.getElementById(`rfrom_${t}`).value);
-  const to=parseInt(document.getElementById(`rto_${t}`).value);
+  const from=parseInt(document.getElementById(`rfrom_${tid(t)}`).value);
+  const to=parseInt(document.getElementById(`rto_${tid(t)}`).value);
   const lp=getLearned();if(!lp[t])lp[t]={};
   const allNums=[...new Set(CHAPS[t].flatMap(ch=>ch.dafim))];
   allNums.filter(n=>n>=from&&n<=to).forEach(n=>{lp[t][n]=true;});
   setLearned(lp);
-  document.getElementById(`rpicker_${t}`).style.display='none';
+  document.getElementById(`rpicker_${tid(t)}`).style.display='none';
   renderLearnedPages();
   showToast(`Dafim ${from}–${to} marked learned ✓`);
 }
@@ -2002,55 +2017,63 @@ function readTractateFile(file){
       const data=JSON.parse(ev.target.result);
       importTractate(data);
     } catch(err){
-      fb.innerHTML=`<span style="color:var(--red)">❌ Invalid JSON: ${err.message}</span>`;
+      fb.innerHTML=`<span style="color:var(--red)">❌ Invalid JSON: ${esc(err.message)}</span>`;
     }
   };
   reader.readAsText(file);
 }
 function importTractate(data,opts={}){
-  const {skipPublish=false,silent=false}=opts;
-  const fb=document.getElementById('uploadFeedback');
-  if(!data.tractate||!data.dafim){
-    fb.innerHTML='<span style="color:var(--red)">❌ Missing required fields: tractate, dafim</span>';return;
+  // shared: data came from the multi-user cloud collection. It never overwrites
+  // this user's own edits of the same daf and is not copied into customDafim
+  // (it is re-fetched on every load, and customDafim is synced to the user's doc).
+  const {skipPublish=false,silent=false,shared=false}=opts;
+  const fb=shared?null:document.getElementById('uploadFeedback');
+  if(!data||!data.tractate||!Array.isArray(data.dafim)){
+    if(fb) fb.innerHTML='<span style="color:var(--red)">❌ Missing required fields: tractate, dafim</span>';
+    return;
   }
   const t=normTractate(data.tractate);
+  if(!t){
+    if(fb) fb.innerHTML='<span style="color:var(--red)">❌ Invalid tractate name</span>';
+    return;
+  }
+  const own=shared?(ls('customDafim',{})[t]||{}):{};
   let added=0,updated=0;
   const importedNums=[];
   data.dafim.forEach(df=>{
-    if(!df.n||!df.pts||df.pts.length<1){return;}
+    if(!df||typeof df!=='object') return;
     const n=Number(df.n);
-    const entry={n,t,sw:df.sw||'',sh:df.sh||h(n),st:df.st||'',pts:df.pts.map(p=>({ti:p.ti||'',s:p.s||'',d:p.d||p.ti||''}))};
-    if(getDaf(t,n)) updated++;else added++;
-    upsertDaf(entry);
-    importedNums.push(n);
+    if(own[n]) return;
+    const existed=!!D[dafKey(t,n)];
+    const entry=upsertDaf({...df,t,n});
+    if(!entry) return;
+    if(existed) updated++;else added++;
+    importedNums.push(entry.n);
   });
 
   // update chapters
   if(Array.isArray(data.chapters)&&data.chapters.length){
-    CHAPS[t]=data.chapters.map(ch=>({
-      name:ch.name||t,
-      dafim:[...new Set((ch.dafim||[]).map(Number).filter(Boolean))].sort((a,b)=>a-b)
+    const chapters=data.chapters.filter(ch=>ch&&typeof ch==='object').map(ch=>({
+      name:str(ch.name)||t,
+      dafim:[...new Set((Array.isArray(ch.dafim)?ch.dafim:[]).map(Number).filter(n=>Number.isInteger(n)&&n>0))].sort((a,b)=>a-b)
     }));
-  } else if(!CHAPS[t]||!CHAPS[t].length){
-    CHAPS[t]=[{name:t,dafim:[]}];
+    if(chapters.length) CHAPS[t]=chapters;
   }
-  const known=new Set((CHAPS[t]||[]).flatMap(ch=>ch.dafim||[]));
+  if(!CHAPS[t]||!CHAPS[t].length) CHAPS[t]=[{name:t,dafim:[]}];
+  const known=new Set(CHAPS[t].flatMap(ch=>ch.dafim));
   importedNums.forEach(n=>{if(!known.has(n)){CHAPS[t][0].dafim.push(n);known.add(n);}});
-  CHAPS[t].forEach(ch=>{ch.dafim=[...new Set((ch.dafim||[]).map(Number).filter(Boolean))].sort((a,b)=>a-b);});
+  CHAPS[t][0].dafim.sort((a,b)=>a-b);
 
   // persist custom dafim
-  const existing=ls('customDafim',{});
-  data.dafim.forEach(df=>{
-    const n=Number(df.n);
-    if(!n) return;
+  if(!shared){
+    const existing=ls('customDafim',{});
     if(!existing[t])existing[t]={};
-    const entry=getDaf(t,n);
-    if(entry) existing[t][n]=entry;
-  });
-  lss('customDafim',existing);
-  if(fb) fb.innerHTML=`<span style="color:var(--green)">✓ Imported ${t}: ${added} new, ${updated} updated dafim. Go to <strong>Learned Pages</strong> to mark what you've studied.</span>`;
-  if(!silent) showToast(`${t} imported! ${added+updated} dafim added.`);
-  if(data.tractate){
+    importedNums.forEach(n=>{const entry=getDaf(t,n);if(entry) existing[t][n]=entry;});
+    lss('customDafim',existing);
+  }
+  if(fb) fb.innerHTML=`<span style="color:var(--green)">✓ Imported ${esc(t)}: ${added} new, ${updated} updated dafim. Go to <strong>Learned Pages</strong> to mark what you've studied.</span>`;
+  if(!silent){
+    showToast(`${t} imported! ${added+updated} dafim added.`);
     renderLearnedPages();
     renderHome();
     renderBrowse();
@@ -2064,7 +2087,7 @@ function importTractate(data,opts={}){
 
 // ── MANUAL ADD ──
 function saveManualDaf(){
-  const t=(document.getElementById('maTractate').value||'').trim();
+  const t=normTractate(document.getElementById('maTractate').value);
   const n=parseInt(document.getElementById('maDaf').value);
   const sw=(document.getElementById('maSimanW').value||'').trim();
   const sh=(document.getElementById('maSimanH').value||'').trim();
@@ -2079,8 +2102,8 @@ function saveManualDaf(){
     if(ti) pts.push({ti,s:s||ti,d:d||s||ti});
   });
   if(!pts.length){fb.innerHTML='<span style="color:var(--red)">Add at least one point.</span>';return;}
-  const entry={n,t,sw,sh:sh||h(n),st,pts};
-  upsertDaf(entry);
+  const entry=upsertDaf({n,t,sw,sh:sh||h(n),st,pts});
+  if(!entry){fb.innerHTML='<span style="color:var(--red)">Daf number must be between 1 and 999.</span>';return;}
   if(!CHAPS[t]) CHAPS[t]=[{name:t,dafim:[]}];
   if(!CHAPS[t][0].dafim.includes(n)) CHAPS[t][0].dafim.push(n);
   CHAPS[t][0].dafim.sort((a,b)=>a-b);
@@ -2092,7 +2115,7 @@ function saveManualDaf(){
   // auto-mark as learned
   const lp=getLearned();if(!lp[t])lp[t]={};
   lp[t][n]=true;setLearned(lp);
-  fb.innerHTML=`<span style="color:var(--green)">✓ Daf ${n} (${h(n)}) saved to ${t} and marked as learned!</span>`;
+  fb.innerHTML=`<span style="color:var(--green)">✓ Daf ${n} (${h(n)}) saved to ${esc(t)} and marked as learned!</span>`;
   showToast(`Daf ${n} added ✓`);
   if(_currentUser&&_fbDb){
     publishTractateToCloud(t).catch(e=>console.warn('publish tractate failed:',e.message));
@@ -2107,13 +2130,12 @@ function loadCustomDafim(){
   const existing=ls('customDafim',{});
   Object.keys(existing).forEach(t=>{
     Object.keys(existing[t]).forEach(n=>{
-      const entry=existing[t][n];
-      if(!entry.t) entry.t=t;
-      upsertDaf(entry);
-      if(!CHAPS[t]) CHAPS[t]=[{name:t,dafim:[]}];
-      if(!CHAPS[t][0].dafim.includes(entry.n)) CHAPS[t][0].dafim.push(entry.n);
+      const entry=upsertDaf({...(existing[t][n]||{}),t});
+      if(!entry) return;
+      if(!CHAPS[entry.t]) CHAPS[entry.t]=[{name:entry.t,dafim:[]}];
+      if(!CHAPS[entry.t][0].dafim.includes(entry.n)) CHAPS[entry.t][0].dafim.push(entry.n);
     });
-    CHAPS[t][0].dafim.sort((a,b)=>a-b);
+    if(CHAPS[t]) CHAPS[t][0].dafim.sort((a,b)=>a-b);
   });
 }
 
@@ -2231,7 +2253,7 @@ function describeFirebaseError(e){
   const msg=e?.message||String(e||'Unknown Firebase error');
   const code=e?.code||'';
   if(code==='permission-denied'||/insufficient permissions|permission/i.test(msg)){
-    return 'Firestore blocked this write. Deploy the repo firestore.rules to project tracking-app-0001, then try again.';
+    return 'Firestore blocked this write. Either firestore.rules is not deployed (npm run deploy:rules), or this shared tractate was published by another account — only its publisher can change it.';
   }
   if(code==='unauthenticated'||/auth/i.test(msg)){
     return 'Google sign-in is not active for this write. Sign out, sign back in, then try again.';
@@ -2263,19 +2285,20 @@ async function publishTractateToCloud(t){
   const user=await requireCloudUser();
   const payload=serializeTractate(t);
   if(!payload.dafim.length) return;
+  // full overwrite (no merge) so fields from older versions, like publisher emails, are dropped
   await _fbDb.collection('tractates').doc(tractateDocId(t)).set({
     tractate:payload.tractate,
     chapters:payload.chapters,
     dafCount:payload.dafim.length,
     updatedAt:new Date().toISOString(),
-    updatedBy:{uid:user.uid,name:user.displayName||'',email:user.email||''}
-  },{merge:true});
+    updatedBy:{uid:user.uid,name:user.displayName||''}
+  });
 
   for(let i=0;i<payload.dafim.length;i+=450){
     const batch=_fbDb.batch();
     payload.dafim.slice(i,i+450).forEach(df=>{
       const ref=_fbDb.collection('tractates').doc(tractateDocId(t)).collection('dafim').doc(String(df.n));
-      batch.set(ref,{...df,t:payload.tractate,updatedAt:new Date().toISOString()},{merge:true});
+      batch.set(ref,{...df,t:payload.tractate,publisherUid:user.uid,updatedAt:new Date().toISOString()});
     });
     await batch.commit();
   }
@@ -2286,7 +2309,8 @@ function collectUserState(){
     studyProgress:ls('studyProgress',{}),
     currentTractate:ls('currentTractate',''),
     learnedPages:ls('learnedPages',{}),
-    recent:ls('recent',[])
+    recent:ls('recent',[]),
+    masteryResetAt:ls('masteryResetAt',0)
   };
   const progress={mastery:{},bookmarks:{},notes:{}};
   for(let i=0;i<localStorage.length;i++){
@@ -2321,9 +2345,10 @@ function applyUserState(state){
     if(typeof state.study.currentTractate!=='undefined') setZ('currentTractate',state.study.currentTractate);
     if(typeof state.study.learnedPages!=='undefined') setZ('learnedPages',state.study.learnedPages);
     if(typeof state.study.recent!=='undefined') setZ('recent',state.study.recent);
+    if(typeof state.study.masteryResetAt!=='undefined') setZ('masteryResetAt',Math.max(ls('masteryResetAt',0),state.study.masteryResetAt||0));
   }
   if(state.progress){
-    Object.entries(state.progress.mastery||{}).forEach(([k,v])=>setZ(k,v));
+    mergeMastery(state.progress.mastery);
     Object.entries(state.progress.bookmarks||{}).forEach(([k,v])=>setZ(k,v));
     Object.entries(state.progress.notes||{}).forEach(([k,v])=>setZ(k,v));
   }
@@ -2334,6 +2359,26 @@ function applyUserState(state){
     });
     setZ('customDafim',merged);
   }
+}
+
+// Keep whichever copy of each daf's mastery was practiced most recently, so a
+// device that has been open for hours can't overwrite newer progress from another.
+function mergeMastery(cloud){
+  const resetAt=ls('masteryResetAt',0);
+  Object.entries(cloud||{}).forEach(([k,v])=>{
+    if(!k.startsWith('m_')||!v||typeof v!=='object') return;
+    if((v.lastSeen||0)<=resetAt) return;
+    const local=ls(k,null);
+    if(!local||(v.lastSeen||0)>(local.lastSeen||0)) localStorage.setItem('z_'+k,JSON.stringify(v));
+  });
+}
+function clearLocalUserData(){
+  const keys=[];
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k&&k.startsWith('z_')&&k!=='z_firebaseConfig') keys.push(k);
+  }
+  keys.forEach(k=>localStorage.removeItem(k));
 }
 
 function initFirebase(){
@@ -2411,12 +2456,24 @@ async function signInWithGoogle(){
 }
 
 async function signOut(){
-  if(_fbAuth) await _fbAuth.signOut();
+  if(_cloudSyncDirty&&_currentUser&&_fbDb){
+    const ok=await syncToCloud(true);
+    if(!ok&&!confirm('Your latest progress could not be synced to the cloud and will be removed from this device. Sign out anyway?')) return;
+  }
+  try{
+    if(_fbAuth) await _fbAuth.signOut();
+  } catch(e){
+    showToast('Sign-out failed: '+e.message);
+    return;
+  }
+  if(_cloudSyncTimer){clearTimeout(_cloudSyncTimer);_cloudSyncTimer=null;}
   _currentUser=null;
   _cloudSyncDirty=false;
-  if(_cloudSyncTimer){clearTimeout(_cloudSyncTimer);_cloudSyncTimer=null;}
-  updateAuthUI(null);
+  // this device's copy belongs to the signed-out account (it stays in the cloud);
+  // clear it so the next person to sign in here doesn't inherit it
+  clearLocalUserData();
   showToast('Signed out');
+  setTimeout(()=>location.reload(),400);
 }
 
 function updateAuthUI(user){
@@ -2473,14 +2530,28 @@ async function hydrateSignedInUser(user){
   const statusEl=document.getElementById('syncStatus');
   if(statusEl) statusEl.textContent='Loading your account…';
   try{
-    await loadSharedTractatesFromCloud(true);
+    const owner=ls('ownerUid',null);
+    if(owner&&owner!==user.uid){
+      // local data belongs to a different account: start clean
+      clearLocalUserData();
+      location.reload();
+      return;
+    }
+    // guest progress made before this first sign-in on this device is merged, not dropped
+    const guestLearned=owner?null:ls('learnedPages',{});
     const loadedUserState=await loadUserStateFromCloud(user.uid);
+    if(guestLearned&&Object.keys(guestLearned).length){
+      const lp=ls('learnedPages',{});
+      Object.entries(guestLearned).forEach(([t,m])=>{lp[t]={...(lp[t]||{}),...m};});
+      localStorage.setItem('z_learnedPages',JSON.stringify(lp));
+    }
+    localStorage.setItem('z_ownerUid',JSON.stringify(user.uid));
     loadCustomDafim();
     await loadSharedTractatesFromCloud(true);
     if(statusEl) statusEl.textContent=loadedUserState?'Account loaded ✓':'New account ready ✓';
     _hydratedUid=user.uid;
     renderAll();
-    if(!loadedUserState) syncToCloud(true);
+    if(!loadedUserState||!owner) syncToCloud(true).catch(()=>{});
   } catch(e){
     console.warn('account hydrate:',e);
     if(statusEl) statusEl.textContent='Account load failed: '+e.message;
@@ -2524,11 +2595,11 @@ async function syncToCloud(silent=false){
     user=await requireCloudUser();
   } catch(e){
     if(!silent) showToast(describeFirebaseError(e));
-    return;
+    return false;
   }
   if(_cloudSyncInFlight){
     _cloudSyncDirty=true;
-    return;
+    return false;
   }
   if(_cloudSyncTimer){clearTimeout(_cloudSyncTimer);_cloudSyncTimer=null;}
   _cloudSyncInFlight=true;
@@ -2537,16 +2608,23 @@ async function syncToCloud(silent=false){
   const statusEl=document.getElementById('syncStatus');
   if(statusEl) statusEl.textContent=silent?'Auto-syncing…':'Syncing…';
 
-  const state=collectUserState();
+  let ok=false;
   try{
+    const stateRef=_fbDb.collection('users').doc(user.uid).collection('state').doc('main');
+    const cloud=await stateRef.get();
+    if(cloud.exists) mergeMastery(cloud.data()?.progress?.mastery);
+    const state=collectUserState();
+    // whole-field / whole-document writes (not merge) so removals — an unmarked
+    // learned daf, a deleted note — are removed in the cloud too
     await _fbDb.collection('users').doc(user.uid).set({
       profile:state.profile,
       settings:state.settings,
       study:state.study,
       updatedAt:new Date().toISOString(),
       schemaVersion:2
-    },{merge:true});
-    await _fbDb.collection('users').doc(user.uid).collection('state').doc('main').set(state,{merge:true});
+    },{mergeFields:['profile','settings','study','updatedAt','schemaVersion']});
+    await stateRef.set(state);
+    ok=true;
     if(statusEl) statusEl.textContent='Synced ✓ '+new Date().toLocaleTimeString()+(silent?' (auto)':'');
     if(!silent) showToast('Progress synced to cloud ✓');
   } catch(e){
@@ -2559,6 +2637,7 @@ async function syncToCloud(silent=false){
       _cloudSyncTimer=setTimeout(()=>syncToCloud(true),2500);
     }
   }
+  return ok;
 }
 
 async function loadFromCloud(){
@@ -2586,9 +2665,16 @@ async function syncSharedTractatesToCloud(){
   try{
     await requireCloudUser();
     const tractates=getTractates();
-    for(const t of tractates){ await publishTractateToCloud(t); }
-    if(statusEl) statusEl.textContent=`Published ${tractates.length} tractates ✓`;
-    showToast('Shared tractates updated ✓');
+    const failed=[];
+    for(const t of tractates){
+      try{ await publishTractateToCloud(t); }
+      catch(e){ failed.push(t); console.warn('publish',t,e); }
+    }
+    const okCount=tractates.length-failed.length;
+    if(statusEl) statusEl.textContent=failed.length
+      ?`Published ${okCount} of ${tractates.length}. Not published (owned by another account, or blocked): ${failed.join(', ')}`
+      :`Published ${tractates.length} tractates ✓`;
+    showToast(failed.length?'Some tractates were not published':'Shared tractates updated ✓');
   } catch(e){
     if(statusEl) statusEl.textContent='Tractate publish failed: '+describeFirebaseError(e);
     showToast('Failed to publish tractates');
@@ -2602,13 +2688,8 @@ async function testFirebaseConnection(){
     const user=await requireCloudUser();
     const now=new Date().toISOString();
     await _fbDb.collection('users').doc(user.uid).collection('diagnostics').doc('connection').set({checkedAt:now},{merge:true});
-    await _fbDb.collection('tractates').doc('_connection_test').set({
-      tractate:'_connection_test',
-      dafCount:0,
-      updatedAt:now,
-      updatedBy:{uid:user.uid,email:user.email||''}
-    },{merge:true});
-    if(statusEl) statusEl.textContent='Firebase connection OK ✓ user sync + shared tractate writes allowed';
+    await _fbDb.collection('tractates').limit(1).get();
+    if(statusEl) statusEl.textContent='Firebase connection OK ✓ user sync writes + shared tractate reads allowed';
     showToast('Firebase connection OK ✓');
   } catch(e){
     const message=describeFirebaseError(e);
@@ -2627,21 +2708,27 @@ async function loadSharedTractatesFromCloud(silent=false){
     const snap=await _fbDb.collection('tractates').get();
     let count=0;
     for(const doc of snap.docs){
-      const data=doc.data();
-      if(!data?.tractate) continue;
-      let dafim=Array.isArray(data.dafim)?data.dafim:[];
-      if(!dafim.length){
-        const dafimSnap=await doc.ref.collection('dafim').get();
-        dafim=dafimSnap.docs.map(d=>d.data()).filter(df=>df&&df.n);
+      // one malformed document must not stop the others from loading
+      try{
+        const data=doc.data();
+        if(!data?.tractate||typeof data.tractate!=='string'||doc.id==='_connection_test') continue;
+        const ownerUid=data.updatedBy?.uid||null;
+        let dafim=Array.isArray(data.dafim)?data.dafim:[];
+        if(!dafim.length){
+          const dafimSnap=await doc.ref.collection('dafim').get();
+          // ignore daf docs added by anyone other than the tractate's publisher
+          dafim=dafimSnap.docs.map(d=>d.data()).filter(df=>df&&df.n&&(!df.publisherUid||df.publisherUid===ownerUid));
+        }
+        if(!dafim.length) continue;
+        importTractate({
+          tractate:data.tractate,
+          chapters:Array.isArray(data.chapters)?data.chapters:null,
+          dafim
+        },{skipPublish:true,silent:true,shared:true});
+        count++;
+      } catch(e){
+        console.warn('skipping shared tractate',doc.id,e);
       }
-      if(!dafim.length) continue;
-      importTractate({
-        tractate:data.tractate,
-        hebrew:data.hebrew||'',
-        chapters:data.chapters||[{name:data.tractate,dafim:dafim.map(df=>df.n)}],
-        dafim
-      },{skipPublish:true,silent:true});
-      count++;
     }
     if(!silent){
       if(statusEl) statusEl.textContent=`Loaded ${count} shared tractates ✓`;
@@ -2678,8 +2765,6 @@ function getAIKey(purpose='grading'){
   if(purpose==='pdf') return {key:ant||oai,type:ant?'anthropic':'openai'};
   return {key:oai||ant,type:oai?'openai':'anthropic'};
 }
-// Legacy: single apiKey still supported
-const apiKey=()=>ls('anthropicKey','')||ls('openaiKey','')||ls('apiKey','');
 
 function renderSettings(){
   const ant=ls('anthropicKey','');
@@ -2728,7 +2813,7 @@ function saveKeys(){
     const update={settings:{}};
     if(ant) update.settings.anthropicKey=ant;
     if(oai) update.settings.openaiKey=oai;
-    if(Object.keys(update.settings).length) _fbDb.collection('users').doc(_currentUser.uid).set(update,{merge:true});
+    if(Object.keys(update.settings).length) _fbDb.collection('users').doc(_currentUser.uid).set(update,{merge:true}).catch(e=>console.warn('key sync failed:',e.message));
   }
   const hasAny=!!(ls('anthropicKey','')||ls('openaiKey',''));
   document.getElementById('apiDot').classList.toggle('set',hasAny);
@@ -2758,14 +2843,27 @@ function clearKeys(){
   }
   showToast('Keys cleared');
 }
-// Legacy single-key functions (keep for backward compat)
-function saveKey(){saveKeys();}
-function clearKey(){clearKeys();}
-function saveName(){
-  const v=(document.getElementById('guestNameInput')?.value||'').trim();
-  lss('userName',v||'Chavrusa');
-  document.getElementById('greetName').textContent=v||'Chavrusa';
-  showToast('Name saved!');
+function exportData(){
+  const state=collectUserState();
+  // never write API keys into a downloaded file
+  delete state.settings.anthropicKey;
+  delete state.settings.openaiKey;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify({exportedAt:new Date().toISOString(),...state},null,2)],{type:'application/json'}));
+  a.download=`zichru-progress-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  showToast('Progress exported');
+}
+function doReset(){
+  if(!confirm('Reset all mastery scores? Notes, bookmarks and learned pages are kept.')) return;
+  const keys=[];
+  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('z_m_'))keys.push(k);}
+  keys.forEach(k=>localStorage.removeItem(k));
+  // the marker stops older cloud scores from being merged back in
+  lss('masteryResetAt',Date.now());
+  renderAll();
+  showToast('Mastery reset');
 }
 
 /* ════════════════════ PDF IMPORT (FIXED) ════════════════════ */
@@ -2791,7 +2889,6 @@ function libTab(name,el){
   if(name==='learned') renderLearnedPages();
 }
 
-function renderLibrary(){ renderLearnedPages(); }
 
 let _pdfQueue=[];
 
@@ -2825,7 +2922,7 @@ function showPdfStep(n){
     if(el) el.style.display=(i===n)?'':'none';
   });
 }
-function pdfLog(msg){const el=document.getElementById('pdfLog');if(el){el.innerHTML+=msg+'<br>';el.scrollTop=el.scrollHeight;}}
+function pdfLog(msg){const el=document.getElementById('pdfLog');if(el){el.insertAdjacentHTML('beforeend',esc(msg)+'<br>');el.scrollTop=el.scrollHeight;}}
 function setPdfProgress(pct,title){
   const bar=document.getElementById('pdfProgressBar');
   if(bar) bar.style.width=Math.min(100,pct)+'%';
@@ -2915,6 +3012,52 @@ function salvagePartialJson(text){
   } catch(e){ return null; }
 }
 
+// Text of a non-streaming Messages API response (thinking blocks can come first)
+function anthropicText(d){
+  return (d?.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+}
+
+// Streams a Messages API request and returns {text, stopReason}. Streaming keeps
+// a long PDF extraction from hitting browser/network timeouts.
+async function anthropicStream(key,body,onProgress){
+  const resp=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','x-api-key':key,'anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({...body,stream:true})
+  });
+  if(!resp.ok){
+    const err=await resp.json().catch(()=>({}));
+    const e=new Error(`Anthropic error ${resp.status}: ${err.error?.message||resp.statusText}`);
+    e.status=resp.status;
+    throw e;
+  }
+  const reader=resp.body.getReader();
+  const decoder=new TextDecoder();
+  let buf='',text='',stopReason=null;
+  for(;;){
+    const {done,value}=await reader.read();
+    if(done) break;
+    buf+=decoder.decode(value,{stream:true});
+    let nl;
+    while((nl=buf.indexOf('\n'))>=0){
+      const line=buf.slice(0,nl).trim();
+      buf=buf.slice(nl+1);
+      if(!line.startsWith('data:')) continue;
+      let ev;
+      try{ ev=JSON.parse(line.slice(5)); }catch(e){ continue; }
+      if(ev.type==='content_block_delta'&&ev.delta?.type==='text_delta'){
+        text+=ev.delta.text;
+        onProgress?.(text.length);
+      } else if(ev.type==='message_delta'&&ev.delta?.stop_reason){
+        stopReason=ev.delta.stop_reason;
+      } else if(ev.type==='error'){
+        throw new Error('Anthropic stream error: '+(ev.error?.message||'unknown'));
+      }
+    }
+  }
+  return {text,stopReason};
+}
+
 function extractOpenAIResponseText(data){
   if(typeof data?.output_text==='string' && data.output_text.trim()) return data.output_text;
   const out=[];
@@ -3001,7 +3144,7 @@ async function parsePdfFromUrl(){
   } catch(e){
     showPdfStep(4);
     document.getElementById('pdfErrorMsg').innerHTML=
-      `Could not fetch the file from that link: ${e.message}<br><br>`+
+      `Could not fetch the file from that link: ${esc(e.message)}<br><br>`+
       `If this is a Google Drive link, double-check it's shared as "Anyone with the link". `+
       `Some sites also block direct fetches from other domains (CORS) — if so, download the PDF yourself and use the upload box instead.`;
     return;
@@ -3048,55 +3191,31 @@ async function parsePdfBlob(file,name,size){
       // Anthropic — native PDF support via document block
       pdfLog('Using Anthropic Claude (native PDF reading)…');
       setPdfProgress(25,'Claude is reading the PDF…');
-      const resp=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'anthropic-version':'2023-06-01',
-          'x-api-key':ant,
-          'anthropic-dangerous-direct-browser-access':'true'
-        },
-        body:JSON.stringify({
-          model:'claude-opus-4-6',
-          max_tokens:64000,
-          messages:[{
-            role:'user',
-            content:[
-              {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
-              {type:'text',text:fullPrompt}
-            ]
-          }]
-        })
+      const body=model=>({
+        model,
+        max_tokens:64000,
+        messages:[{
+          role:'user',
+          content:[
+            {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
+            {type:'text',text:fullPrompt}
+          ]
+        }]
       });
-      if(!resp.ok){
-        const err=await resp.json().catch(()=>({}));
-        // Try smaller model if too large
-        if(resp.status===400||resp.status===413){
-          pdfLog('File too large for single call, trying claude-sonnet…');
-          const resp2=await fetch('https://api.anthropic.com/v1/messages',{
-            method:'POST',
-            headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','x-api-key':ant,'anthropic-dangerous-direct-browser-access':'true'},
-            body:JSON.stringify({
-              model:'claude-sonnet-4-6',
-              max_tokens:64000,
-              messages:[{role:'user',content:[
-                {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
-                {type:'text',text:fullPrompt}
-              ]}]
-            })
-          });
-          if(!resp2.ok) throw new Error(`Anthropic error: ${(await resp2.json().catch(()=>({}))).error?.message||resp2.statusText}`);
-          const d2=await resp2.json();
-          responseText=d2.content?.[0]?.text||'';
-          if(d2.stop_reason==='max_tokens') pdfLog('⚠ Response was cut off — tractate may be too long for one pass. Consider splitting the PDF.');
-        } else {
-          throw new Error(`Anthropic error ${resp.status}: ${err.error?.message||resp.statusText}`);
-        }
-      } else {
-        const data=await resp.json();
-        responseText=data.content?.[0]?.text||'';
-        if(data.stop_reason==='max_tokens') pdfLog('⚠ Response was cut off — tractate may be too long for one pass. Consider splitting the PDF.');
+      const onProgress=len=>setPdfProgress(Math.min(78,25+len/2000),`Claude is extracting… (${Math.round(len/1000)}k characters)`);
+      let result;
+      try{
+        result=await anthropicStream(ant,body('claude-opus-5'),onProgress);
+      } catch(e){
+        // only an overload/server error is worth retrying on another model;
+        // a PDF that is too large or invalid fails the same way everywhere
+        if(!(e.status===529||e.status>=500)) throw e;
+        pdfLog('Claude Opus is unavailable right now, retrying with Claude Sonnet…');
+        result=await anthropicStream(ant,body('claude-sonnet-5'),onProgress);
       }
+      responseText=result.text;
+      if(result.stopReason==='refusal') throw new Error('Claude declined to process this PDF.');
+      if(result.stopReason==='max_tokens') pdfLog('⚠ Response was cut off — tractate may be too long for one pass. Consider splitting the PDF.');
 
     } else if(oai){
       // OpenAI — upload file, then send it to Responses API as input_file
@@ -3202,7 +3321,7 @@ async function parsePdfBlob(file,name,size){
   } catch(err){
     pdfLog('Error: '+err.message);
     showPdfStep(4);
-    document.getElementById('pdfErrorMsg').innerHTML=err.message.replace(/\n/g,'<br>');
+    document.getElementById('pdfErrorMsg').innerHTML=esc(err.message).replace(/\n/g,'<br>');
   }
 }
 
@@ -3211,7 +3330,7 @@ function confirmPdfImport(){
   importTractate(_pdfExtractedData);
   const count=_pdfExtractedData.dafim.length;
   document.getElementById('pdfImportFeedback').innerHTML=
-    `<span style="color:var(--green)">Imported ${count} dafim from ${_pdfExtractedData.tractate}. Go to Learned Pages tab to mark what you've studied.</span>`;
+    `<span style="color:var(--green)">Imported ${count} dafim from ${esc(_pdfExtractedData.tractate)}. Go to Learned Pages tab to mark what you've studied.</span>`;
   _pdfExtractedData=null;
   if(_pdfQueue.length){
     document.getElementById('pdfImportFeedback').innerHTML+=`<br><span style="color:var(--muted)">Processing next queued PDF (${_pdfQueue.length} remaining)…</span>`;
